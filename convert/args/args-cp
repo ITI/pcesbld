@@ -1,0 +1,12 @@
+-name embed
+-csvDir ./
+-resultsDir ../input
+-descDir ../input/desc
+-csvIn cp-sheet.csv
+-cpuOpsDescIn cpuOps.json
+-tcDescOut tc.json
+-mc mc.json
+-funcsDescOut funcs.json
+-cmpptn cp.yaml
+-cpInit cpInit.yaml
+
