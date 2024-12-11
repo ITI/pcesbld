@@ -1,9 +1,0 @@
--name embed
--csvDir ./
--resultsDir ../input
--descDir ../input/desc
--csvIn topo-sheet.csv
--topoOut topo.yaml
--modelDescIn devModel.json
--cpuDescOut cpuDesc.json
--attrbDescOut attrb.json

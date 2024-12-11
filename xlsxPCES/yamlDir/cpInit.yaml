@@ -1,0 +1,86 @@
+dictname: exampleName
+initlist:
+  Crypto:
+    cfg:
+      cryptoProcess: '{"timingcode": {}, "directprefix": ["encrypt", "decrypt"], "trace":
+        0, "msg2mc": {}}'
+    cptype: Crypto
+    msgs: []
+    name: Crypto
+    useyaml: true
+  Embedded:
+    cfg:
+      embeddedProcess: '{"timingcode": {"process": "packet-process"}, "accelname":
+        "", "trace": 0, "msg2mc": {}, "msg2msg": {}}'
+      reqDecrypt: '{"bypass": 0, "trace": 0, "srvCP": "Crypto", "srvLabel": "cryptoProcess",
+        "srvOp": "decrypt-AES-128-CBC", "rspOp": "", "msg2mc": {"*": "default"}, "msg2msg":
+        {}}'
+      reqEncrypt: '{"bypass": 0, "trace": 0, "srvCP": "Crypto", "srvLabel": "cryptoProcess",
+        "srvOp": "encrypt-AES-128-CBC", "rspOp": "", "msg2mc": {"*": "default"}, "msg2msg":
+        {}}'
+      validateSrc: '{"bypass": 0, "trace": 0, "srvCP": "", "srvLabel": "", "srvOp":
+        "auth", "rspOp": "", "msg2mc": {"*": "default"}, "msg2msg": {}}'
+    cptype: Embedded
+    msgs:
+    - ispckt: true
+      msgtype: decrypt
+    - ispckt: true
+      msgtype: process
+    - ispckt: true
+      msgtype: encrypt
+    - ispckt: true
+      msgtype: results
+    name: Embedded
+    useyaml: true
+  EmbeddedAuth:
+    cfg:
+      authenticate: '{"timingcode": {"auth": "authenticate"}, "directprefix": [],
+        "trace": 0, "msg2mc": {}}'
+    cptype: EmbeddedAuth
+    msgs: []
+    name: EmbeddedAuth
+    useyaml: true
+  HMI:
+    cfg:
+      accelDecrypt: '{"timingcode": {"decrypt": "decrypt-AES-128-CBC"}, "accelname":
+        "hmiAccel", "trace": 1, "msg2mc": {}, "msg2msg": {}}'
+      accelEncrypt: '{"timingcode": {"encrypt": "encrypt-AES-128-CBC"}, "accelname":
+        "hmiAccel", "trace": 1, "msg2mc": {}, "msg2msg": {}}'
+      endMeasure: '{"msrname": "end2end", "msrop": "end", "trace": 0, "msg2mc": {}}'
+      endThread: '{"trace": 0, "msg2mc": {"finish": "default"}}'
+      generatePckt: '{"timingcode": {"generate": "packet-generation"}, "accelname":
+        "", "trace": 1, "msg2mc": {}, "msg2msg": {}}'
+      processRtn: '{"timingcode": {"process": "packet-return"}, "accelname": "", "trace":
+        0, "msg2mc": {}, "msg2msg": {}}'
+      startMeasure: '{"msrname": "end2end", "msrop": "start", "trace": 0, "msg2mc":
+        {}}'
+      startThread: '{"pcktlen": 1000, "msglen": 1500, "msgtype": "measure", "starttime":
+        10.0, "data": "", "trace": 0}'
+      validateSrc: '{"bypass": 0, "trace": 0, "srvCP": "", "srvLabel": "", "srvOp":
+        "auth", "rspOp": "", "msg2mc": {"*": "default"}, "msg2msg": {}}'
+    cptype: HMI
+    msgs:
+    - ispckt: true
+      msgtype: measure
+    - ispckt: true
+      msgtype: generate
+    - ispckt: true
+      msgtype: encrypt
+    - ispckt: true
+      msgtype: decrypt
+    - ispckt: true
+      msgtype: process
+    - ispckt: true
+      msgtype: finish
+    - ispckt: true
+      msgtype: compute
+    name: HMI
+    useyaml: true
+  HMIAuth:
+    cfg:
+      authenticate: '{"timingcode": {"auth": "authenticate"}, "directprefix": [],
+        "trace": 0, "msg2mc": {}}'
+    cptype: HMIAuth
+    msgs: []
+    name: HMIAuth
+    useyaml: true

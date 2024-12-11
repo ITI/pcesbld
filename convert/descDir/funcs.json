@@ -1,1 +1,0 @@
-{"HMI": ["startThread", "startMeasure", "generatePckt", "reqEncrypt", "validateSrc", "reqDecrypt", "processRtn", "endMeasure", "endThread"], "Embedded": ["validateSrc", "reqDecrypt", "embeddedProcess", "reqEncrypt"], "Crypto": ["validateSrc", "cryptoProcess"], "HMIAuth": ["authenticate"], "EmbeddedAuth": ["authenticate"]}

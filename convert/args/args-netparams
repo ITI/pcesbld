@@ -1,7 +1,0 @@
--name embed
--csvDir ./
--resultsDir ../input
--descDir ../input/desc
--csvIn netParams-sheet.csv
--exp exp.yaml
--attrbDescIn attrb.json

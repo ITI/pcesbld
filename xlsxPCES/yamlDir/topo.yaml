@@ -1,0 +1,100 @@
+endpts:
+- accel:
+    hmiAccel: AEWIN 0T008
+  cores: 1
+  groups: []
+  interfaces:
+  - cable: intrfc@hub-hmiDev
+    carry: []
+    device: hmiDev
+    devname: hmiDev
+    devtype: Endpt
+    faces: central
+    groups: []
+    mediatype: wired
+    name: intrfc@hmiDev-hub
+    wireless: []
+  model: AMD EPYC 9534 64-Core Processor
+  name: hmiDev
+- accel: {}
+  cores: 1
+  groups: []
+  interfaces:
+  - cable: intrfc@hub-embeddedDev
+    carry: []
+    device: embeddedDev
+    devname: embeddedDev
+    devtype: Endpt
+    faces: central
+    groups: []
+    mediatype: wired
+    name: intrfc@embeddedDev-hub
+    wireless: []
+  model: AMD EPYC 9534 64-Core Processor
+  name: embeddedDev
+- accel: {}
+  cores: 1
+  groups: []
+  interfaces:
+  - cable: intrfc@hub-sslDev
+    carry: []
+    device: sslDev
+    devname: sslDev
+    devtype: Endpt
+    faces: central
+    groups: []
+    mediatype: wired
+    name: intrfc@sslDev-hub
+    wireless: []
+  model: AMD EPYC 9534 64-Core Processor
+  name: sslDev
+name: exampleName
+networks:
+- endpts:
+  - hmiDev
+  - embeddedDev
+  - sslDev
+  groups: []
+  mediatype: wired
+  name: central
+  netscale: LAN
+  routers: []
+  switches:
+  - hub
+routers: []
+switches:
+- groups: []
+  interfaces:
+  - cable: intrfc@hmiDev-hub
+    carry: []
+    device: hub
+    devname: hub
+    devtype: Switch
+    faces: central
+    groups: []
+    mediatype: wired
+    name: intrfc@hub-hmiDev
+    wireless: []
+  - cable: intrfc@sslDev-hub
+    carry: []
+    device: hub
+    devname: hub
+    devtype: Switch
+    faces: central
+    groups: []
+    mediatype: wired
+    name: intrfc@hub-sslDev
+    wireless: []
+  - cable: intrfc@embeddedDev-hub
+    carry: []
+    device: hub
+    devname: hub
+    devtype: Switch
+    faces: central
+    groups: []
+    mediatype: wired
+    name: intrfc@hub-embeddedDev
+    wireless: []
+  model: Netgear GS324T
+  name: hub
+  simple: 1

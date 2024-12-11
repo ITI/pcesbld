@@ -1,0 +1,10 @@
+-csvDir /Users/nicol/Dropbox/gitTemp/pcesbld/xlsxPCES/csvDir
+-yamlDir /Users/nicol/Dropbox/gitTemp/pcesbld/xlsxPCES/yamlDir
+-descDir /Users/nicol/Dropbox/gitTemp/pcesbld/xlsxPCES/descDir
+-name exampleName
+-csvIn mapping-sheet.csv
+-funcsDesc funcs.json
+-cpuDesc cpuDesc.json
+-cpuOpsDesc cpuOps.json
+-tcDesc tc.json
+-map map.yaml

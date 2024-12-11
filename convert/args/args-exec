@@ -1,9 +1,0 @@
--name embed
--csvDir ./
--resultsDir ../input
--descDir ../input/desc
--csvIn execTime-sheet.csv
--cpuOpsDescOut cpuOps.json
--modelDescOut devModel.json
--funcExecOut funcExec.yaml
--devExecOut devExec.yaml    

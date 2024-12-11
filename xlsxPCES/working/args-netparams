@@ -1,0 +1,7 @@
+-csvDir /Users/nicol/Dropbox/gitTemp/pcesbld/xlsxPCES/csvDir
+-yamlDir /Users/nicol/Dropbox/gitTemp/pcesbld/xlsxPCES/yamlDir
+-descDir /Users/nicol/Dropbox/gitTemp/pcesbld/xlsxPCES/descDir
+-name exampleName
+-csvIn netParams-sheet.csv
+-exp exp.yaml
+-attrbDescIn attrb.json

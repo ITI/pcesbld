@@ -1,7 +1,0 @@
--working ./working
--name exampleName
--xlsx ../templates/template.xlsx
--csvDir ./csvDir
--resultsDir ./resultsDir
--descDir ./descDir
--build

@@ -1,0 +1,8 @@
+-working ./working
+-name exampleName
+-xlsx ./examples/embedded-model.xlsx
+-convertDir ./convert
+-csvDir ./csvDir
+-yamlDir ./yamlDir
+-descDir ./descDir
+-build

@@ -1,0 +1,137 @@
+patterns:
+  Crypto:
+    cptype: simple
+    edges: []
+    extedges: []
+    funcs:
+    - class: srvRsp
+      label: cryptoProcess
+    name: Crypto
+    services:
+      decrypt:
+        cp: ''
+        label: cryptoProcess
+  Embedded:
+    cptype: simple
+    edges:
+    - dstcp: Embedded
+      dstlabel: reqDecrypt
+      msgtype: decrypt
+      srccp: Embedded
+      srclabel: validateSrc
+    - dstcp: Embedded
+      dstlabel: embeddedProcess
+      msgtype: process
+      srccp: Embedded
+      srclabel: reqDecrypt
+    - dstcp: Embedded
+      dstlabel: reqEncrypt
+      msgtype: encrypt
+      srccp: Embedded
+      srclabel: embeddedProcess
+    extedges:
+    - dstcp: HMI
+      dstlabel: validateSrc
+      msgtype: results
+      srccp: Embedded
+      srclabel: reqEncrypt
+    funcs:
+    - class: srvReq
+      label: validateSrc
+    - class: srvReq
+      label: reqDecrypt
+    - class: processPckt
+      label: embeddedProcess
+    - class: srvReq
+      label: reqEncrypt
+    name: Embedded
+    services:
+      auth:
+        cp: EmbeddedAuth
+        label: authenticate
+  EmbeddedAuth:
+    cptype: simple
+    edges: []
+    extedges: []
+    funcs:
+    - class: srvRsp
+      label: authenticate
+    name: EmbeddedAuth
+    services: {}
+  HMI:
+    cptype: simple
+    edges:
+    - dstcp: HMI
+      dstlabel: startMeasure
+      msgtype: measure
+      srccp: HMI
+      srclabel: startThread
+    - dstcp: HMI
+      dstlabel: generatePckt
+      msgtype: generate
+      srccp: HMI
+      srclabel: startMeasure
+    - dstcp: HMI
+      dstlabel: accelEncrypt
+      msgtype: encrypt
+      srccp: HMI
+      srclabel: generatePckt
+    - dstcp: HMI
+      dstlabel: accelDecrypt
+      msgtype: decrypt
+      srccp: HMI
+      srclabel: validateSrc
+    - dstcp: HMI
+      dstlabel: processRtn
+      msgtype: process
+      srccp: HMI
+      srclabel: accelDecrypt
+    - dstcp: HMI
+      dstlabel: endMeasure
+      msgtype: measure
+      srccp: HMI
+      srclabel: processRtn
+    - dstcp: HMI
+      dstlabel: endThread
+      msgtype: finish
+      srccp: HMI
+      srclabel: endMeasure
+    extedges:
+    - dstcp: Embedded
+      dstlabel: validateSrc
+      msgtype: compute
+      srccp: HMI
+      srclabel: accelEncrypt
+    funcs:
+    - class: start
+      label: startThread
+    - class: measure
+      label: startMeasure
+    - class: processPckt
+      label: generatePckt
+    - class: processPckt
+      label: accelEncrypt
+    - class: srvReq
+      label: validateSrc
+    - class: processPckt
+      label: accelDecrypt
+    - class: processPckt
+      label: processRtn
+    - class: measure
+      label: endMeasure
+    - class: finish
+      label: endThread
+    name: HMI
+    services:
+      auth:
+        cp: HMIAuth
+        label: authenticate
+  HMIAuth:
+    cptype: simple
+    edges: []
+    extedges: []
+    funcs:
+    - class: srvRsp
+      label: authenticate
+    name: HMIAuth
+    services: {}

@@ -1,1 +1,0 @@
-{"CPU%AMD EPYC 9534 64-Core Processor": ["encrypt-AES-256-CBC", "decrypt-AES-256-CBC", "encrypt-AES-128-CBC", "decrypt-AES-128-CBC", "authenticate", "packet-generation", "packet-return", "packet-process"]}
