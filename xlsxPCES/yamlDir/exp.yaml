@@ -29,7 +29,13 @@ parameters:
     attrbvalue: 1
   param: latency
   paramObj: Interface
-  value: '5.0000000000000005e-12'
+  value: 5e-06
+- attributes:
+  - attrbname: '*'
+    attrbvalue: 1
+  param: bandwidth
+  paramObj: Interface
+  value: $bndwidth
 - attributes:
   - attrbname: '*'
     attrbvalue: 1

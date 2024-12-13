@@ -88,6 +88,10 @@ class Mapping():
                 
                 # check each of these against the ops from Exec to see if present
                 for op in opsFromTopo: 
+
+                    # NB come back to this to do a better job
+                    if op.find('$') > -1:
+                        continue
                     if not op in opsFromExec: 
                         msg = 'expected operation {} for ({},{}) to be func exec table associated with model to which endpoint {} is attached'.format(op, self.cmpptn, self.label, self.cpu)
                         msgs.append(msg)

@@ -13,10 +13,10 @@ initlist:
       embeddedProcess: '{"timingcode": {"process": "packet-process"}, "accelname":
         "", "trace": 0, "msg2mc": {}, "msg2msg": {}}'
       reqDecrypt: '{"bypass": 0, "trace": 0, "srvCP": "Crypto", "srvLabel": "cryptoProcess",
-        "srvOp": "decrypt-AES-128-CBC", "rspOp": "", "msg2mc": {"*": "default"}, "msg2msg":
+        "srvOp": "decrypt-$crypto", "rspOp": "", "msg2mc": {"*": "default"}, "msg2msg":
         {}}'
       reqEncrypt: '{"bypass": 0, "trace": 0, "srvCP": "Crypto", "srvLabel": "cryptoProcess",
-        "srvOp": "encrypt-AES-128-CBC", "rspOp": "", "msg2mc": {"*": "default"}, "msg2msg":
+        "srvOp": "encrypt-$crypto", "rspOp": "", "msg2mc": {"*": "default"}, "msg2msg":
         {}}'
       validateSrc: '{"bypass": 0, "trace": 0, "srvCP": "", "srvLabel": "", "srvOp":
         "auth", "rspOp": "", "msg2mc": {"*": "default"}, "msg2msg": {}}'
@@ -42,10 +42,10 @@ initlist:
     useyaml: true
   HMI:
     cfg:
-      accelDecrypt: '{"timingcode": {"decrypt": "decrypt-AES-128-CBC"}, "accelname":
-        "hmiAccel", "trace": 1, "msg2mc": {}, "msg2msg": {}}'
-      accelEncrypt: '{"timingcode": {"encrypt": "encrypt-AES-128-CBC"}, "accelname":
-        "hmiAccel", "trace": 1, "msg2mc": {}, "msg2msg": {}}'
+      accelDecrypt: '{"timingcode": {"decrypt": "decrypt-$crypto"}, "accelname": "hmiAccel",
+        "trace": 1, "msg2mc": {}, "msg2msg": {}}'
+      accelEncrypt: '{"timingcode": {"encrypt": "encrypt-$crypto"}, "accelname": "hmiAccel",
+        "trace": 1, "msg2mc": {}, "msg2msg": {}}'
       endMeasure: '{"msrname": "end2end", "msrop": "end", "trace": 0, "msg2mc": {}}'
       endThread: '{"trace": 0, "msg2mc": {"finish": "default"}}'
       generatePckt: '{"timingcode": {"generate": "packet-generation"}, "accelname":

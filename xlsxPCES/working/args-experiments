@@ -2,9 +2,5 @@
 -yamlDir /Users/nicol/Dropbox/github-repos/pcesbld/xlsxPCES/yamlDir
 -descDir /Users/nicol/Dropbox/github-repos/pcesbld/xlsxPCES/descDir
 -name exampleName
--csvIn mapping-sheet.csv
--funcsDesc funcs.json
--cpuDesc cpuDesc.json
--cpuOpsDesc cpuOps.json
--tcDesc tc.json
--map map.yaml
+-csvIn experiments-sheet.csv
+-experiments experiments.yaml

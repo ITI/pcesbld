@@ -1,6 +1,6 @@
 -working ./working
 -name exampleName
--xlsx ./examples/embedded-model.xlsx
+-xlsx ./examples/embedded-model-exp.xlsx
 -convertDir ./convert
 -csvDir ./csvDir
 -yamlDir ./yamlDir

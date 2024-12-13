@@ -208,6 +208,11 @@ class Network:
             value = self.param[param]
             if len(value) == 0:
                 continue
+
+            # revisit for better sanity check with experiment variables
+            if value.find('$') > -1:
+                continue
+
             try:
                 floatvalue = float(value)
                 if floatvalue < 0.0:
@@ -662,7 +667,7 @@ class Interface:
             paramValue = self.param[paramName]
             if len(str(paramValue)) > 0:
                 if paramName in ('latency'):
-                    paramValue = str(float(paramValue)/1e6)
+                    paramValue = str(float(paramValue))
                 rd = {'paramObj': 'Interface', 'attributes': [], 'param': paramName, 'value': paramValue}
                 for jdx in range(0, len(intrfcAttrb)):
                     attrbName = intrfcAttrb[jdx]
@@ -760,6 +765,8 @@ class Interface:
         for param in testParams:
             value = self.param[param]
             if len(value) == 0:
+                continue
+            if value.find('$') > -1:
                 continue
             try:
                 floatvalue = float(value)

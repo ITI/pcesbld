@@ -86,26 +86,35 @@ def main():
     if errs>0:
         exit(1)
 
-    fileTypes = ('cp', 'topo', 'map', 'netparams', 'exec')
+    fileTypes = ('cp', 'topo', 'map', 'netparams', 'exec', 'experiments')
+    optional = ('experiments')
+
+    script_present = {}
     # make sure that the scripts expected for conversion are present
     
     for ft in fileTypes:
         script = os.path.join(full_convertDir, 'convert-'+ft+'.py')
         in_args = os.path.join(full_argsDir, 'args-'+ft)
 
-        if not os.path.isfile(script):
-            print("script %s expected but not found".format(script))
+        script_present[ft] = False
+        if ft not in optional and not os.path.isfile(script):
+            print("script {} expected but not found".format(script))
             errs += 1
+        elif os.path.isfile(script):
+            script_present[ft] = True
 
-        if not os.path.isfile(in_args):
-            print("argument file %s expected but not found".format(in_args))
+        if script_present[ft] and not os.path.isfile(in_args):
+            print("argument file {} expected but not found".format(in_args))
             errs += 1
 
     if errs > 0:
         exit(1)
 
-
     for ft in fileTypes:
+
+        if not script_present[ft]:
+            continue
+
         in_args = os.path.join(full_argsDir, 'args-'+ft)
         out_args = os.path.join(workingDir,'args-'+ft)
 
@@ -149,10 +158,14 @@ def main():
     if args.build:
         print('transforming execTime-sheet.csv to input files')
 
-        transformations = [("convert-exec.py", "exec"), ("convert-topo.py", "topo"), ("convert-cp.py", "cp"),
+        transformations = [("convert-exec.py", "exec"), ("convert-experiments.py", "experiments"), 
+            ("convert-topo.py", "topo"), ("convert-cp.py", "cp"),
             ("convert-map.py", "map"), ("convert-netparams.py", "netparams")]
 
         for scriptName, sheet in transformations:
+            if not script_present[sheet]:
+                continue
+
             scriptPath = os.path.join(full_convertDir, scriptName)
             argsPath = os.path.join(workingDir, "args-"+sheet)
 

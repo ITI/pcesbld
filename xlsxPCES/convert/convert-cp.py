@@ -957,6 +957,7 @@ def main():
 
     csv_input_file = os.path.join(csvDir, args.csv_input)
     mc_input_file = os.path.join(descDir, args.mc_input)
+    exprmnt_input_file = os.path.join(descDir, 'exprmnt.json')
     cpuOpsDesc_input_file = os.path.join(descDir, args.cpuOpsDesc_input)
 
     cmpptn_output_file = os.path.join(yamlDir, args.cmpptn_output)
@@ -968,7 +969,7 @@ def main():
     sysname = args.name
 
     errs = 0
-    input_files = (csv_input_file, mc_input_file, cpuOpsDesc_input_file)
+    input_files = (csv_input_file, mc_input_file, cpuOpsDesc_input_file, exprmnt_input_file)
     for input_file in input_files:
         if not os.path.isfile(input_file):
             print_err('unable to open input file "{}"'.format(input_file))
@@ -1019,6 +1020,9 @@ def main():
 
     with open(cpuOpsDesc_input_file,'r') as rf:
         cpuOps = json.load(rf)
+
+    with open(exprmnt_input_file, 'r') as rf:
+        exprmnts = json.load(rf)
 
     # gather up the unique operation names
     for _, opList in cpuOps.items():

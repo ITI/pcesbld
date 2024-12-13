@@ -1,0 +1,1 @@
+{"cp": {"$crypto": ["AES-256-CBC", "AES-256-CBC", "AES-128-CBC", "AES-128-CBC"]}, "netParams": {"$bndwdth": ["1000", "10", "1000", "10"]}}
