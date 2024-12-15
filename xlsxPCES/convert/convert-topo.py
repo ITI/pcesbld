@@ -766,7 +766,7 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument(u'-name', metavar = u'name of system', dest=u'name', required=True)
-
+    parser.add_argument(u'-validate', action='store_true', required=False)
     parser.add_argument(u'-csvDir', metavar = u'wiredory where csv file is found', dest=u'csvDir', required=True)
     parser.add_argument(u'-yamlDir', metavar = u'wiredory where results are stored', dest=u'yamlDir', required=True)
     parser.add_argument(u'-descDir', metavar = u'wiredory where auxilary descriptions are stored', 

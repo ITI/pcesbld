@@ -929,6 +929,7 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument(u'-name', metavar = u'name of system', dest=u'name', required=True)
+    parser.add_argument(u'-validate', action='store_true', required=False)
 
     parser.add_argument(u'-csvDir', metavar = u'name of directory where csv inputs reside', dest=u'csvDir', required=True)
     parser.add_argument(u'-yamlDir', metavar = u'name of directory where result output resides', dest=u'yamlDir', required=True)

@@ -9,11 +9,25 @@ import argparse
 import sys
 import pdb
 import os
+import yaml
+import json
+import glob
+import shutil
 
 converted_files = []
 
 workingDir = ''
-full_csvDir = ''
+csvDir = ''
+templateDir = ''
+script_present = {}
+
+csvDir = ""
+yamlDir = ""
+descDir = ""
+workingDir = ""
+convertDir = ""
+templateDir = ""
+argsDir = ""
 
 def convert_xlsx_to_csv(xlsx_file):
     """Converts all sheets in an XLSX file to individual CSV files."""
@@ -26,7 +40,7 @@ def convert_xlsx_to_csv(xlsx_file):
         # Read the sheet into a DataFrame
         df = pd.read_excel(xlsx_file, sheet_name=sheet_name)
 
-        sheet_output_name = os.path.join(full_csvDir, sheet_name+"-sheet")
+        sheet_output_name = os.path.join(templateDir, sheet_name+"-sheet")
         # Create a CSV filename for the sheet
         csv_file = f"{sheet_output_name}.csv"
        
@@ -37,7 +51,7 @@ def convert_xlsx_to_csv(xlsx_file):
         converted_files.append(sheet_output_name)
 
 def main():
-    global workingDir, full_csvDir
+    global workingDir, csvDir, templateDir, script_present, yamlDir, descDir, convertDir, templateDir, argsDir 
 
     parser = argparse.ArgumentParser()
     parser.add_argument(u'-name', metavar = u'name of system', dest=u'name', required=True)
@@ -45,6 +59,10 @@ def main():
     parser.add_argument(u'-convertDir', metavar = u'directory with converter function', dest=u'convertDir', required=True)
     parser.add_argument(u'-xlsx', metavar = u'input file name', dest=u'xlsx', required=True)
     parser.add_argument(u'-csvDir', metavar = u'directory where csv file is found', dest=u'csvDir', required=True)
+
+    parser.add_argument(u'-templateDir', metavar = u'directory where csv templates (with symbols) are found', 
+            dest=u'templateDir', required=True)
+
     parser.add_argument(u'-yamlDir', metavar = u'directory where results are stored', dest=u'yamlDir', required=True)
     parser.add_argument(u'-descDir', metavar = u'directory where auxilary descriptions are stored', dest=u'descDir', required=True)
     parser.add_argument(u'-build', action='store_true', required=False)
@@ -67,14 +85,10 @@ def main():
     descDir = args.descDir
     workingDir = args.workingDir
     convertDir = args.convertDir
+    templateDir = args.templateDir
+    argsDir = os.path.join(convertDir, 'args')
 
-    full_csvDir = os.path.abspath(csvDir)
-    full_yamlDir = os.path.abspath(yamlDir)
-    full_descDir = os.path.abspath(descDir)
-    full_convertDir = os.path.abspath(convertDir)     
-    full_argsDir = os.path.join(full_convertDir, 'args')
-
-    commonDir = (full_csvDir, full_yamlDir, full_descDir, full_convertDir, full_argsDir)
+    commonDir = (csvDir, yamlDir, descDir, convertDir, argsDir, templateDir)
 
     # ensure that these directories exist and are accessible
     errs = 0
@@ -89,12 +103,11 @@ def main():
     fileTypes = ('cp', 'topo', 'map', 'netparams', 'exec', 'experiments')
     optional = ('experiments')
 
-    script_present = {}
     # make sure that the scripts expected for conversion are present
     
     for ft in fileTypes:
-        script = os.path.join(full_convertDir, 'convert-'+ft+'.py')
-        in_args = os.path.join(full_argsDir, 'args-'+ft)
+        script = os.path.join(convertDir, 'convert-'+ft+'.py')
+        in_args = os.path.join(argsDir, 'args-'+ft)
 
         script_present[ft] = False
         if ft not in optional and not os.path.isfile(script):
@@ -115,16 +128,16 @@ def main():
         if not script_present[ft]:
             continue
 
-        in_args = os.path.join(full_argsDir, 'args-'+ft)
+        in_args = os.path.join(argsDir, 'args-'+ft)
         out_args = os.path.join(workingDir,'args-'+ft)
 
         with open(in_args, 'r') as rf:
             with open(out_args, 'w') as wf:
 
                 # write out common directories
-                print('-csvDir {}'.format(full_csvDir), file=wf)
-                print('-yamlDir {}'.format(full_yamlDir), file=wf)
-                print('-descDir {}'.format(full_descDir), file=wf)
+                print('-csvDir {}'.format(csvDir), file=wf)
+                print('-yamlDir {}'.format(yamlDir), file=wf)
+                print('-descDir {}'.format(descDir), file=wf)
                 print('-name {}'.format(name), file=wf)
  
                 for line in rf:
@@ -141,11 +154,11 @@ def main():
                         exit(1)
 
                     if pieces[0] == '-csvDir':
-                        print('-csvDir', full_csvDir, file=wf)
+                        print('-csvDir', csvDir, file=wf)
                     elif pieces[0] == '-yamlDir':
-                        print('-yamlDir', full_yamlDir, file=wf)
+                        print('-yamlDir', yamlDir, file=wf)
                     elif pieces[0] == '-descDir':
-                        print('-descDir', full_descDir, file=wf)
+                        print('-descDir', descDir, file=wf)
                     elif pieces[0] == '-name':
                         continue
                     else:
@@ -155,32 +168,133 @@ def main():
     xlsx_file = args.xlsx  # Replace with your file path
     convert_xlsx_to_csv(xlsx_file)
 
-    if args.build:
-        print('transforming execTime-sheet.csv to input files')
+    # csv files are in templateDir.  Copy them all to csvDir
+    template2csv()     
+ 
+    sheetNames = ('cp','topo','execTime','netParams','mapping')
 
-        transformations = [("convert-exec.py", "exec"), ("convert-experiments.py", "experiments"), 
-            ("convert-topo.py", "topo"), ("convert-cp.py", "cp"),
-            ("convert-map.py", "map"), ("convert-netparams.py", "netparams")]
+    # make sure we can get to all the files we expect in template
+
+    if args.build:
+        # convert experiments sheet to get yaml output description
+        transformations = [("convert-experiments.py", "experiments")] 
 
         for scriptName, sheet in transformations:
-            if not script_present[sheet]:
-                continue
+            convertSheet(scriptName, sheet)
 
-            scriptPath = os.path.join(full_convertDir, scriptName)
-            argsPath = os.path.join(workingDir, "args-"+sheet)
-
-            process = subprocess.Popen(["python3", scriptPath, "-is", argsPath], 
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            stdout, stderr = process.communicate()
-           
-            if process.returncode != 0:
+        # the experiment yaml is in yamlDir
+        experiment_input_file = os.path.join(yamlDir, 'experiments.yaml')
+        with open(experiment_input_file, 'r') as rf:
+            exprmnts = yaml.safe_load(rf)
         
-                print("Error from {}: {}".format(scriptName, stderr))
-            else:
-                if len(stderr) > 0 :
-                    print(stderr)
+        # for each experiment copy the files to be modified from templateDir to csvDir and 
+        # apply the transformations
+
+        for exprmnt in exprmnts:
+            exprmntName = exprmnt['name']
+            print('validating experiment {}'.format(exprmntName))
+
+            sheetFlag = {}
+            # get the files to be modified
+            for code in exprmnt:
+                if code == 'name' or len(code) == 0:
+                    continue
+                    
+                pieces = code.split(',')
+                if len(pieces) > 1:
+                    sheets = pieces[1:]
                 else:
-                    print("ok", sheet)
+                    sheets = sheetNames
+
+                for sheet in sheets:
+                    sheetFlag[sheet] = True
+
+            # copy the files to be modified
+            for sheet in sheetFlag:
+                templateFile = os.path.join(templateDir, sheet+'-sheet.csv')
+                inputFile = os.path.join(csvDir, sheet+'-sheet.csv')
+                shutil.copyfile(templateFile, inputFile)
+     
+            # make the modifications
+            for code, value in exprmnt.items():
+                if code == 'name' or len(code) == 0:
+                    continue
+                pieces = code.split(',')
+                token = pieces[0]
+                if len(pieces) > 1:
+                    sheets = pieces[1:]
+                else:
+                    sheets = sheetNames
+
+                for sheet in sheets:
+                    inputFile = os.path.join(csvDir, sheet+'-sheet.csv')
+                    tmpFile = os.path.join(csvDir, 'tmp-'+sheet+'-sheet.csv')
+                    with open(inputFile, 'r') as rf:
+                        with open(tmpFile, 'w') as wf:
+                            for line in rf:
+                                newline = line.replace(token, value)
+                                wf.write(newline)
+                    shutil.copyfile(tmpFile, inputFile)
+                    os.remove(tmpFile)
+
+            # all the symbol replacements are done, so convert all the sheets, (again)
+            # N.B. a sheet that was modified may generate aux files that depend on the
+            # modification, which means that downstream transformations depend on it, so
+            # we broad-brush the conversions 
+            transformations = [("convert-exec.py", "exec"), ("convert-topo.py", "topo"), ("convert-cp.py", "cp"),
+                ("convert-map.py", "map"), ("convert-netparams.py", "netparams")]
+
+            for scriptName, sheet in transformations:
+                convertSheet(scriptName, sheet)
+
+        # errors that crop up due to individual experiments have been reported, now
+        # do the transformation on the csvs that carry the symbols
+
+        # copy all the templated files into csvDir for processing
+        template2csv()
+
+        # transformations w/o experiment sheet
+        transformations = [("convert-exec.py", "exec"), ("convert-topo.py", "topo"), ("convert-cp.py", "cp"),
+            ("convert-map.py", "map"), ("convert-netparams.py", "netparams")]
+
+        # do 'em all
+        print("Transform csv files with symbols to yaml files with symbols")
+        for scriptName, sheet in transformations:
+            convertSheet(scriptName, sheet)
+
+def template2csv():
+    directory_path = templateDir
+    file_pattern = '*.csv'
+    filenames = glob.glob(f'{directory_path}/{file_pattern}')
+
+    for filePath in filenames:
+        basename = os.path.basename(filePath) 
+        input_file = os.path.join(csvDir, basename)
+        shutil.copyfile(filePath, input_file)            
+    
+
+def convertSheet(scriptName, sheet):
+    global convertDir, workingDir 
+    if not script_present[sheet]:
+        return 
+
+    scriptPath = os.path.join(convertDir, scriptName)
+    argsPath = os.path.join(workingDir, "args-"+sheet)
+
+    process = subprocess.Popen(["python3", scriptPath, "-is", argsPath], 
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    stdout, stderr = process.communicate()
+   
+    if process.returncode != 0:
+
+        print("Error from {}: {}".format(scriptName, stderr))
+    else:
+        if len(stderr) > 0 :
+            print(stderr)
+        else:
+            print("ok", sheet)
+
+
 
 if __name__ == "__main__":
     main()

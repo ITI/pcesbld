@@ -21,7 +21,7 @@ class ExperimentEntry:
     def __init__(self, row):
         self.name = row[expNameIdx]
         self.variableDict = {}
-        for idx in range(1,len(row)):
+        for idx in range(1,len(variableName)+1):
             self.variableDict[ variableName[idx-1] ] = row[idx]
 
     def validate(self):
@@ -60,7 +60,7 @@ class ExperimentEntry:
         rd = {'name': self.name}
         for key, value in self.variableDict.items():
             rd[key] = value
- 
+
         return rd
 
 def isCrypto(code):
@@ -131,6 +131,7 @@ def directoryAccessible(path):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(u'-name', metavar = u'name of system', dest=u'name', required=True)
+    parser.add_argument(u'-validate', action='store_true', required=False)
     parser.add_argument(u'-csvDir', metavar = u'directory where csv file is found', dest=u'csvDir', required=True)
     parser.add_argument(u'-yamlDir', metavar = u'directory where results are stored', dest=u'yamlDir', required=True)
     parser.add_argument(u'-descDir', metavar = u'directory where auxilary descriptions are stored', 
@@ -205,7 +206,10 @@ def main():
 
             if row[0] == 'name':
                 for idx in range(1, len(row)):
-                    variableName.append(row[idx])
+                    if len(row[idx]):
+                        variableName.append(row[idx])
+                    else:
+                        break
                 continue
   
             experiments.append(ExperimentEntry(row))

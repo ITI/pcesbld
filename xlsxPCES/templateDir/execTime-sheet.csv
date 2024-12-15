@@ -1,0 +1,43 @@
+Unnamed: 0,Unnamed: 1,Unnamed: 2,Unnamed: 3
+CPU Entries,,,
+### model,operation,pcktlen,exec time
+AMD EPYC 9534 64-Core Processor,encrypt-AES-256-CBC,128,0.8734855
+AMD EPYC 9534 64-Core Processor,decrypt-AES-256-CBC,128,0.6257925
+AMD EPYC 9534 64-Core Processor,encrypt-AES-128-CBC,1500,5.4710410000000005
+AMD EPYC 9534 64-Core Processor,decrypt-AES-128-CBC,1500,4.5559009999999995
+AMD EPYC 9534 64-Core Processor,encrypt-AES-128-CBC,1000,3.792754
+AMD EPYC 9534 64-Core Processor,decrypt-AES-128-CBC,1000,3.097098
+AMD EPYC 9534 64-Core Processor,authenticate,1000,4
+AMD EPYC 9534 64-Core Processor,packet-generation,1000,32.294883999999996
+AMD EPYC 9534 64-Core Processor,packet-return,1000,10
+AMD EPYC 9534 64-Core Processor,packet-process,1000,100
+,,,
+,,,
+,,,
+Accelerator Entries,,,
+### model,operation,pcktlen,exec time
+AEWIN 0T008,encrypt-AES-256-CBC,128,0.1746971
+AEWIN 0T008,decrypt-AES-256-CBC,128,0.1251585
+AEWIN 0T008,encrypt-AES-128-CBC,1500,1.0942082000000002
+AEWIN 0T008,decrypt-AES-128-CBC,1500,0.9111801999999999
+AEWIN 0T008,encrypt-AES-128-CBC,1000,0.7585508
+AEWIN 0T008,decrypt-AES-128-CBC,1000,0.6194196
+,,,
+Router Entries,,,
+### model,operation,const,perbyte
+,,,
+Switch Entries,,,
+### model,operation,const,perbyte
+Aruba 3810m,switch,25.46870888253889,0.020314564440981862
+Netgear GS324T,switch,26.615850225217656,0.015806828571358057
+Netgear GS724T,switch,26.33975299412786,0.016032781107754593
+Aruba 3810m,switch,22.973998649851932,0.02647591611196004
+Netgear GJS524e,switch,23.00683779012647,0.02379981194142112
+Netgear GS324T,switch,27.641803043648572,0.020314564440981862
+Netgear GS724T,switch,28.105751672196035,0.017621004694522425
+,,,
+### color key,,,
+### Category label,,,
+### singleton descriptor ,,,
+### list descriptor,,,
+### dict descriptor,,,

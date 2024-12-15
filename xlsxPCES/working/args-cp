@@ -1,6 +1,6 @@
--csvDir /Users/nicol/Dropbox/github-repos/pcesbld/xlsxPCES/csvDir
--yamlDir /Users/nicol/Dropbox/github-repos/pcesbld/xlsxPCES/yamlDir
--descDir /Users/nicol/Dropbox/github-repos/pcesbld/xlsxPCES/descDir
+-csvDir ./csvDir
+-yamlDir ./yamlDir
+-descDir ./descDir
 -name exampleName
 -csvIn cp-sheet.csv
 -cpuOpsDescIn cpuOps.json

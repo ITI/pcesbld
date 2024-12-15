@@ -3,6 +3,7 @@
 -xlsx ./examples/embedded-model-exp.xlsx
 -convertDir ./convert
 -csvDir ./csvDir
+-templateDir ./templateDir
 -yamlDir ./yamlDir
 -descDir ./descDir
 -build
