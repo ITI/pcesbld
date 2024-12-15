@@ -8,7 +8,7 @@ The distributed format assumes that a single spreadsheet with several sheets is 
 
 The source code for the xlsPCES system is available through github.com/iti/pcesbld.   The python script that separates different sheets into .csv files expects two packages to have been installed, 'pandas', and 'openpyxl'.
 
-To use xlsxPCES one should clone github.com/iti/pcesbld.  The package has subdirectory *xlsxpces*, which contains subdirectories *convert*, *examples*, and *template*.  Subdirectory convert holds the python scripts involved into the tools execution, examples holds examples of xlsx projects (including xlsx file and output files), and *template* holds a blank xlsxPCES input file *template.xlsx* that can be copied and filled out for new projects.   
+To use xlsxPCES one should obtain the code at github.com/iti/pcesbld.  The package has subdirectory *xlsxpces*, which contains subdirectories *convert*, *examples*, and *template*.  Subdirectory convert holds the python scripts involved into the tools execution, examples holds examples of xlsx projects (including xlsx file and output files), and *template* holds a blank xlsxPCES input file *template.xlsx* that can be copied and filled out for new projects.   
 
 The script that coordinates the xlsx -> pces transformation is *pcesbld/xlsxpces/convert/convert-xlsx.py* .   It has up to eight command-line parameters:
 
@@ -70,13 +70,14 @@ Next, the class of the function selects a so-called 'response method' dictionary
 
 We now consider how to express this system using an .xlsx spreadsheet.
 
-The names of sheets in an xlsxpces spreadsheet are 'topo', 'cp', 'exectime', 'mapping', and 'netParams'.   *convert-xlsx.py* converts these into files 'topo-sheet.csv', 'cp-sheet.csv', 'exectime-sheet.csv', 'mapping-sheet.csv', and 'netParams-sheet.csv'.   Then, if the -build command-line argument was provided, it calls python scripts found in *pcesbld/xlsxpces/convert*, in a particular order.   Each script transforms one of the sheet's .csv files.   The order of application is
+The names of sheets in an xlsxpces spreadsheet are 'topo', 'cp', 'execTime', 'mapping', 'netParams', and 'experiments'.   *convert-xlsx.py* converts these into files 'topo-sheet.csv', 'cp-sheet.csv', 'exectime-sheet.csv', 'mapping-sheet.csv',  'netParams-sheet.csv', and 'experiments.csv'.   Then, if the -build command-line argument was provided, it calls python scripts found in *pcesbld/xlsxpces/convert*, in a particular order.   Each script transforms one of the sheet's .csv files.   The order of application is
 
-1. *convert-exec.py*, to convert file 'exectime-sheet.csv' into **pces** input file 'funcExec.yaml'.
-2. *convert-topo.py* to convert file 'topo-sheet.csv' into **pces** input file 'topo.yaml'.
-3. *convert-cp.py* to convert file 'cp-sheet.csv' into **pces** input files 'cp.yaml' and 'cpInit.py'.
-4. *convert-map.py* to convert file 'map-sheet.csv' into **pces** input file 'map.yaml'.
-5. *convert-netparams.py* to convert file 'netParams-sheet.csv' into **pces** input file 'exp.yaml'.
+1. *convert-experiments.py* to convert file 'experiments.csv' into **pces** input file 'experiments.yaml'.
+2. *convert-exec.py*, to convert file 'execTime-sheet.csv' into **pces** input file 'funcExec.yaml'.
+3. *convert-topo.py* to convert file 'topo-sheet.csv' into **pces** input file 'topo.yaml'.
+4. *convert-cp.py* to convert file 'cp-sheet.csv' into **pces** input files 'cp.yaml' and 'cpInit.py'.
+5. *convert-map.py* to convert file 'map-sheet.csv' into **pces** input file 'map.yaml'.
+6. *convert-netparams.py* to convert file 'netParams-sheet.csv' into **pces** input file 'exp.yaml'.
 
 The reason for the order is to enable scripts that are earlier in the sequence to create and store auxilary data structures that can be used by scripts later in the sequence to aid in model validation.  For example, in 'exectime-sheet.csv' we find the op codes for operations that have been timed, and whose timings may be used in the course of the **pces** model evaluation.    Those same codes appear on other model sheets, e.g., in 'cp-sheet.csv', and so to enable *convert-cp.py* to perform validation checks on the strings written into cells reserved for these op codes, we have *convert-exec.py* create a file that identifies legitimate op codes for use by *convert-cp.py* .
 
@@ -88,7 +89,7 @@ The execTime sheet holds descriptions of function timings.   An example of the s
 
 ![execTime-sheet](./images/execTime-sheet.png)
 
-​				Figure 3: execTime sheet in running xlsxPCES model
+​						Figure 3: execTime sheet in running xlsxPCES model
 
 The sheet defines four categories, with identifying names in green, 'CPU Entries', 'Accelerator Entries', 'Router Entries', and 'Switch Entries'.  The reason for the separation is that different kinds of devices have different operations, and so we expect the 'operation' column for rows of a given category to refer to operations for which we have timings for that kind of device.  Otherwise the layouts of each category are the same.   
 
@@ -321,3 +322,33 @@ In addition to group membership, the attributes a network can be used to select 
 For switches, routers, and endpoints their selectable attributes are their names, group membership, and their device model.  The two parameters that may be specified are model, and trace.
 
 The most interesting attributes and parameters are associated with interfaces. An interface can be selected using its name, group membership, the type of device its serve ('switch', 'router', 'endpt'), the name of the device it serves, the type of media it carries ('wired', 'wireless'), and the name of the network it faces.   The parameters that can be set are its latency (over a wire to a connecting interface), bandwidth, MTU, and trace.
+
+#### Experiments sheet
+
+Each execution of the **pces** simulator uses a fixed set of experimental parameters, and produces a file of "measurements" whose collection has been encoded into the the model.   The most common use of simulators though is to run a number of trials where the experimental parameters are varied between trials, in order to assess the performance of the system being modeled to those parameters.  To support this use case, xlsxPCES includes an 'experiments' sheet to describe a collection of parameter settings that define an experiment comprised of multiple runs.
+
+Figure 18 below illustrates a sheet we use with the running example.
+
+<img src="/Users/nicol/Dropbox/github-repos/pcesbld/docs/images/experiments-sheet.png" alt="experiments-sheet" style="zoom:50%;" />
+
+​					Figure 18: An experiments sheet for the the xlsxPCES running example
+
+The row whose first cell is 'name' is recognized as defining the parameters to be varied.  The somewhat idyiosyncratic value in columns beyond the first describe parameters settings, one per column.   Each of these column heading cells is a comma separated list, whose first element must begin with the character '$'.   This element is a 'symbol' which can be placed as a substring of a value in the cell of some other sheet.  The remaining elements of the comma separated list are names of xlsxPCES sheets in which the given symbol may appear.    So in this example we define a symbol '$crypto' and state that this symbol may be found in the 'cp' sheet of the model, and define a symbol '$bndwdth' and declare that it may be found in the 'netParams' sheet.    These representations are shown below for cells in the 'cp' sheet
+
+![cp-symbol-1](/Users/nicol/Dropbox/github-repos/pcesbld/docs/images/cp-symbol-1.png)
+
+<img src="/Users/nicol/Dropbox/github-repos/pcesbld/docs/images/cp-symbol-2.png" alt="cp-symbol-2" style="zoom:33%;" />
+
+​		Figure 19: Application of symbol $crypto in the 'cp' sheet of the xlsxPCES running example
+
+
+
+and also in the 'netParams' sheet
+
+![netParams-symbol](/Users/nicol/Dropbox/github-repos/pcesbld/docs/images/netParams-symbol.png)
+
+​        Figure 20: Application of symbol $bndwdth in the 'cp' sheet of the xlsxPCES running example
+
+In the 'experiments' sheet the rows following the definition of symbols and sheets where they may appear each describe a simulation run, giving the values to assign to each of the symbols for that run.   So in this example we define four experiments,  exploring all options possible from varying the crypto parameters from the set {AES-256-CBC, AES-128-CBC} and all interface bandwidth parameters from {10, 1000} Mbs.
+
+When *pdesbld/xlsxPCES/convert-xlsx.py* is run it builds and tests the parameter settings for each experiment, for the purposes of running the validation checks on that experiment's particular settings.   After this phase the csv files with the symbols are transformed into **pces** input files that include the symbols.   When then the set of experiments is run, for each experiment the yaml files with symbols are converted into yaml files where the symbols have been replaced with that experiment's parameter settings, and the outputs that result from that simulation run are gathered and placed in a single file that reports each individual experiment's results
