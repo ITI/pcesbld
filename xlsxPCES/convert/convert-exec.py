@@ -12,6 +12,8 @@ cryptoAlgs = ('aes', 'rc6')
 cryptoModes = ('ECB', 'CBC', 'CFB', 'OFB', 'CTR', 'XTS')
 cryptoAEModes = ('CCM', 'GCM', 'CWC', 'EAX', 'IAPM', 'OCB')
 
+validateFlag = False
+
 operationIdx = 1
 processorIdx = 0
 pcktLenIdx = 2
@@ -34,6 +36,9 @@ class ExecTimeEntry:
         self.execTime = row[execTimeIdx]
 
     def validate(self):
+        if not validateFlag:
+            return True, ""
+
         msgs = []
         if not self.pcktLen.isdigit() or int(self.pcktLen) < 0:
             msg = 'execTime table packet length {} required to be positive integer'.format(self.pcktLen)
@@ -74,6 +79,9 @@ class DevOpTimeEntry:
         self.timePerByte = row[devPerByteIdx]
 
     def validate(self):
+        if not validateFlag:
+            return True, ""
+
         msgs = []
         try:
             tstflt = float(self.timeConst)
@@ -141,6 +149,9 @@ def print_err(*a):
     print(*a, file=sys.stderr)
 
 def validateUniqueness():
+    if not validateFlag:
+        return True, ""
+
     msgs = []
     seen = {}
     for entry in devOpTimeList:
@@ -177,6 +188,8 @@ def directoryAccessible(path):
         return True
 
 def main():
+    global validateFlag
+
     parser = argparse.ArgumentParser()
     parser.add_argument(u'-name', metavar = u'name of system', dest=u'name', required=True)
     parser.add_argument(u'-validate', action='store_true', required=False)
@@ -215,6 +228,12 @@ def main():
     csvDir = args.csvDir
     yamlDir = args.yamlDir
     descDir = args.descDir
+
+    if args.validate is None:
+        validateFlag = False
+    else:
+        validateFlag = True
+
 
     # make sure we have access to these directories
     test_dirs = (csvDir, yamlDir, descDir)

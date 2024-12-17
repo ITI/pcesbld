@@ -22,6 +22,8 @@ endptNames = {}
 networkNames = {}
 devNames = {}
 
+validateFlag = False
+
 devDesc = []
 
 netNameIdx = 0
@@ -84,6 +86,9 @@ class Network:
             self.groups.append(groupName)
 
     def validate(self):
+        if not validateFlag:
+            return True, ""
+
         msgs = []
         if self.netscale not in ('LAN','WAN','T3','T2','T1'):
             msg = "network {} netscale '{}' not found in expected list".format(self.name, self.netscale)
@@ -155,6 +160,17 @@ class Switch:
         self.intrfcs.append(intrfcDict)
 
     def validate(self):
+
+        valid, boolmsg = validateBool(self.simple)
+        if not valid:
+            msg = 'switch "{}" simple flag "{}" is not boolean'.format(self.name, self.simple)
+            msgs.append(msg) 
+        else:
+            self.simple = cnvrtBool(self.simple)
+  
+        if not validateFlag:
+            return True, ""
+
         msgs = []
         if len(self.model) == 0:
             msg = 'switch {} lacks model description'.format(self.name)
@@ -162,8 +178,7 @@ class Switch:
 
         valid, boolmsg = validateBool(self.simple)
         if not valid:
-    
-            msg = "switch {} 'simple' flag is not boolean".format(self.name, self.model)
+            msg = "switch {} 'simple' flag is not boolean".format(self.name)
             msgs.append(msg) 
         else:
             self.simple = cnvrtBool(self.simple)
@@ -227,6 +242,8 @@ class Router:
         self.intrfcs.append(intrfcDict)
 
     def validate(self):
+        if not validateFlag:
+            return True, ""
         msgs = []
         if len(self.model) == 0:
             msg = 'router {} lacks model description'.format(self.name)
@@ -295,19 +312,21 @@ class Endpt:
 
 
     def validate(self):
+        if len(self.cores)==0:
+            self.cores = 1
+        elif validateFlag and (not self.cores.isdigit() or int(self.cores) < 1):
+            msg = 'endpoint {} number of cores {} not positive integer'.format(self.name, self.cores)
+            msgs.append(msg)
+        elif validateFlag:
+            self.cores = int(self.cores)
+
+        if not validateFlag:
+            return True, ""
+
         msgs = []
         if len(self.model) == 0:
             msg = 'endpoint {} lacks model description'.format(self.name)
             msgs.append(msg)
-
-        if len(self.cores)==0:
-            self.cores = 1
-        elif not self.cores.isdigit() or int(self.cores) < 1:
-            msg = 'endpoint {} number of cores {} not positive integer'.format(self.name, self.cores)
-            msgs.append(msg)
-        else:
-            self.cores = int(self.cores)
-
         if len(modelDict) > 0 and len(self.model) > 0 and self.model not in modelDict['CPU']:
             msg = 'endpoint {} model {} not recognized from devDesc file'.format(self.name, self.model)
 
@@ -346,6 +365,9 @@ class WirelessConnection:
         self.mediatype = "wireless"
 
     def validate(self):
+        if not validateFlag:
+            return True, ""
+
         msgs = []
         if not validDev(self.dev):
             msg = "wireless connection specifices device {} which is not defined".format(self.dev)
@@ -476,6 +498,9 @@ class WiredConnection:
         intrfcList.append(intrfc2)
 
     def validate(self):
+        if not validateFlag:
+            return True, ""
+
         msgs = []
         if not validDev(self.dev1):
             msg = "connection specifices device {} which is not defined".format(self.dev1)
@@ -522,17 +547,30 @@ def print_err(*a) :
 
 # called
 def validateBool(v):
-    if v in ('TRUE','True','true','T','t','1'):
+    if isinstance(v, str) and v.startswith('@'):
         return True, ""
-    if v in ('FALSE','False','false','F','f','0'):
+
+    if isinstance(v, str) and len(v) == 0:
+        return True
+
+    if v in ('TRUE','True','true','T','t','1', 1):
+        return True, ""
+    if v in ('FALSE','False','false','F','f','0', 0):
         return True, ""
     return False, "error in boolean variable"
 
 def cnvrtBool(v):
-    if v in ('TRUE','True','true','T','t','1'):
-        return 1
-    if v in ('FALSE','False','false','F','f','0'):
+    if isinstance(v, str) and v.startswith('@'):
+        return v
+
+    if isinstance(v, str) and len(v) == 0:
         return 0
+
+    if v in ('TRUE','True','true','T','t','1', 1):
+        return 1
+    if v in ('FALSE','False','false','F','f','0', 0):
+        return 0
+
     print_err("string {} is not a bool".format(v))
     return None
 
@@ -540,6 +578,9 @@ def validDev(devName):
     return devName in switchNames or devName in routerNames or devName in endptNames
 
 def validateNetworks():
+    if not validateFlag:
+        return True, ""
+
     # check that all networks have unique names
     netnames = {}
     msgs = []
@@ -561,6 +602,9 @@ def validateNetworks():
 
 def validateSwitches():
     # check that all switches have unique names
+    if not validateFlag:
+        return True, ""
+
     switchnames = {}
     msgs = []
     for swtch in switchList:
@@ -580,6 +624,9 @@ def validateSwitches():
     return True, ""
 
 def validateRouters():
+    if not validateFlag:
+        return True, ""
+
     # check that all routers have unique names
     routernames = {}
     msgs = []
@@ -599,6 +646,9 @@ def validateRouters():
     return True, ""
 
 def validateEndpts():
+    if not validateFlag:
+        return True, ""
+
     # check that all endpts have unique names
     endptnames = {}
     msgs = []
@@ -622,6 +672,9 @@ def validateConnections():
     # check that all connections are unique in naming endpoints.
     # connections assumed to be symmetric
     #
+    if not validateFlag:
+        return True, ""
+
     msgs = []
     pairs = {}
 
@@ -672,6 +725,8 @@ def validateConnections():
 
 
 def validateNames():
+    if not validateFlag:
+        return True, ""
     msgs = []
     for net in networkNames:
         if net in switchNames or net in routerNames or net in endptNames:
@@ -762,7 +817,7 @@ def wiredoryAccessible(path):
  
  
 def main():
-    global endptList, networkList, switchList, routerList, wiredConnList
+    global endptList, networkList, switchList, routerList, wiredConnList, validateFlag
 
     parser = argparse.ArgumentParser()
     parser.add_argument(u'-name', metavar = u'name of system', dest=u'name', required=True)
@@ -805,6 +860,8 @@ def main():
     csvDir = args.csvDir
     yamlDir = args.yamlDir
     descDir = args.descDir
+
+    validateFlag = (args.validate is not None)
 
     # make sure we have access to these wiredories
     test_dirs = (csvDir, yamlDir, descDir)

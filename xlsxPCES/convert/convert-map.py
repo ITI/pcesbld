@@ -17,6 +17,8 @@ endpts2models = {}
 cmpptnFuncPairs = {}
 cpuOps = {}
 
+validateFlag = False
+
 cmpptnNames = []
 
 funcDescDict = {}
@@ -48,6 +50,9 @@ class Mapping():
         cpFunc.append((self.cmpptn, self.label))
   
     def validate(self):
+        if not validateFlag:
+            return True, ""
+
         msgs = []
 
         if self.cmpptn not in cmpptnNames:
@@ -102,8 +107,11 @@ class Mapping():
         return True, ""
 
 def validateFuncInCP(cmpptn, label):
+    if not validateFlag:
+        return True, ""
+
     if len(funcDescDict)==0:
-        return True
+        return True, ""
 
     msgs = []
     if cmpptn not in funcDescDict:
@@ -134,6 +142,9 @@ def unnamed(row):
 
 # validate that mappings are unique
 def validateUniqueness():
+    if not validateFlag:
+        return True, ""
+
     msgs = []
     seen = {}
     for idx in range(0,len(cpFunc)):
@@ -148,6 +159,10 @@ def validateUniqueness():
     return True, ""
 
 def validateCoverage():
+
+    if not validateFlag:
+        return True, ""
+
     msgs = []
     covered = {}
     for mapping in mappingList:
@@ -183,7 +198,7 @@ def directoryAccessible(path):
  
 
 def main():
-    global cpuDescList, funcDescDict, endpts2models, cmpptnFuncPairs, cpuOps, cmpptnNames
+    global cpuDescList, funcDescDict, endpts2models, cmpptnFuncPairs, cpuOps, cmpptnNames, validateFlag
 
     parser = argparse.ArgumentParser()
     parser.add_argument(u'-name', metavar = u'name of system', dest=u'name', required=True)
@@ -231,6 +246,11 @@ def main():
     csvDir = args.csvDir
     yamlDir = args.yamlDir
     descDir = args.descDir
+
+    if args.validate is None:
+        validateFlag = False
+    else:
+        validateFlag = True
 
     # make sure we have access to these directories
     test_dirs = (csvDir, yamlDir, descDir)

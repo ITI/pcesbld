@@ -16,9 +16,6 @@ import shutil
 
 converted_files = []
 
-workingDir = ''
-csvDir = ''
-templateDir = ''
 script_present = {}
 
 csvDir = ""
@@ -180,7 +177,7 @@ def main():
         transformations = [("convert-experiments.py", "experiments")] 
 
         for scriptName, sheet in transformations:
-            convertSheet(scriptName, sheet)
+            convertSheet(scriptName, sheet, True)
 
         # the experiment yaml is in yamlDir
         experiment_input_file = os.path.join(yamlDir, 'experiments.yaml')
@@ -245,7 +242,7 @@ def main():
                 ("convert-map.py", "map"), ("convert-netparams.py", "netparams")]
 
             for scriptName, sheet in transformations:
-                convertSheet(scriptName, sheet)
+                convertSheet(scriptName, sheet, True)
 
         # errors that crop up due to individual experiments have been reported, now
         # do the transformation on the csvs that carry the symbols
@@ -260,7 +257,7 @@ def main():
         # do 'em all
         print("Transform csv files with symbols to yaml files with symbols")
         for scriptName, sheet in transformations:
-            convertSheet(scriptName, sheet)
+            convertSheet(scriptName, sheet, False)
 
 def template2csv():
     directory_path = templateDir
@@ -273,13 +270,23 @@ def template2csv():
         shutil.copyfile(filePath, input_file)            
     
 
-def convertSheet(scriptName, sheet):
+def convertSheet(scriptName, sheet, validate):
     global convertDir, workingDir 
     if not script_present[sheet]:
         return 
 
     scriptPath = os.path.join(convertDir, scriptName)
     argsPath = os.path.join(workingDir, "args-"+sheet)
+    argsPathV = os.path.join(workingDir, "args-"+sheet+'-v')
+
+    if validate:
+        with open(argsPathV,'w') as wf:
+            wf.write('-validate\n')
+            with open(argsPath,'r') as rf:
+                for line in rf:
+                    wf.write(line)
+   
+        argsPath = argsPathV 
 
     process = subprocess.Popen(["python3", scriptPath, "-is", argsPath], 
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)

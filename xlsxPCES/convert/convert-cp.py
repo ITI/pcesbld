@@ -26,6 +26,8 @@ messages = {}
 classFuncs = {}
 srvOpDict = {}
 
+validationFlag = True
+
 allOps = []
 
 patternDict = {} 
@@ -70,6 +72,9 @@ class FuncInst:
         return False, 'expected msg with type "{}" on cp "{}" function "{}" inedge'.format(msgType, self.cmpPtnName, self.funcName)
 
     def validate(self):
+        if not validateFlag:
+            return True, ""
+
         # no validation to be done on function name 
         if self.className in pcesFuncClasses:
             return True, ""
@@ -108,6 +113,8 @@ class CmpPtnInst:
         self.initFuncs[initFunc] = initData
 
     def validate(self):
+        if not validateFlag:
+            return True, ""
         msgs = []
         for func in self.funcInstList:
             validated, msg = func.validate()
@@ -250,6 +257,9 @@ class Connection():
 
 
     def validate(self):
+        if not validateFlag:
+            return True, ""
+
         if self.srcCP not in cmpPtnInstDict:
             return False, 'expected definition of comp pattern "{}"'.format(self.srcCP)
 
@@ -297,6 +307,9 @@ class SrvReq:
             exit(1)
 
     def validate(self):
+        if not validateFlag:
+            return True, ""
+
         if self.cmpptn not in cmpPtnInstDict:
             msg = 'cp name "{}" in SrvReq init not recognized'.format(self.cmpptn)
             return False, msg 
@@ -400,6 +413,14 @@ class SrvRsp:
         self.init['directprefix'].append(prefix)
 
     def validate(self):
+
+        # remember this function if it has an interesting timing code dictionary
+        if len(self.init['timingcode']) > 0:
+            TimingCodeFuncs.append(self)
+
+        if not validateFlag:
+            return True, ""
+
         if self.cmpptn not in cmpPtnInstDict:
             print_err('cp name "{}" in SrvRsp init not recognized'.format(self.cmpptn))
             exit(1)
@@ -409,9 +430,6 @@ class SrvRsp:
         if not ok:
             msgs.append(msg)
 
-        # remember this function if it has an interesting timing code dictionary
-        if len(self.init['timingcode']) > 0:
-            TimingCodeFuncs.append(self)
 
         # the key of timing code is inbound message type
         for mc, fc in self.init['timingcode'].items():
@@ -463,6 +481,9 @@ class Measure:
             exit(1)
 
     def validate(self):
+        if not validateFlag:
+            return True, ""
+
         if self.cmpptn not in cmpPtnInstDict:
             print_err('cp name "{}" in Measure init not recognized'.format(self.cmpptn))
             exit(1)
@@ -494,7 +515,19 @@ class Start:
             exit(1)
 
     def validate(self):
+
         msgs = []
+        try:
+            starttime = float(self.init['starttime'])
+            self.init['starttime'] = starttime
+        except:
+            if validateFlag:
+                msg = 'start function gives non floating point start time {}'.format(self.init['starttime'])
+                msgs.append(msg)
+           
+        if not validateFlag:
+            return True, ""
+  
         if self.cmpptn not in cmpPtnInstDict:
             msg = 'cp name "{}" in Finish init not recognized'.format(self.cmpptn)
             msgs.append(msg) 
@@ -535,6 +568,9 @@ class Finish:
             exit(1)
 
     def validate(self):
+        if not validateFlag:
+            return True, ""
+
         if self.cmpptn not in cmpPtnInstDict:
             print_err('cp name "{}" in Finish init not recognized'.format(self.cmpptn))
             exit(1)
@@ -560,6 +596,9 @@ class BckgrndLd:
             exit(1)
 
     def validate(self):
+        if not validateFlag:
+            return True, ""
+
         if self.cmpptn not in cmpPtnInstDict:
             print_err('cp name "{}" in BckgrndLd not recognized'.format(self.cmpptn))
             exit(1)
@@ -589,6 +628,13 @@ class ProcessPckt:
             exit(1)
 
     def validate(self):
+        # remember this function if it has an interesting timing code dictionary
+        if len(self.init['timingcode']) > 0:
+            TimingCodeFuncs.append(self)
+
+        if not validateFlag:
+            return True, ""
+
         if self.cmpptn not in cmpPtnInstDict:
             print_err('cp name "{}" in ProcessPckt not recognized'.format(self.cmpptn))
             exit(1)
@@ -611,10 +657,6 @@ class ProcessPckt:
         if len(msgs) > 0:
             return False, '\n'.join(msgs)
 
-        # remember this function if it has an interesting timing code dictionary
-        if len(self.init['timingcode']) > 0:
-            TimingCodeFuncs.append(self)
-  
         for mc in self.init['timingcode']:
             # check if timing code key is the msgType on an input edge
             # to the function being initialized.
@@ -655,6 +697,9 @@ class Transfer:
             exit(1)
 
     def validate(self):
+        if not validateFlag:
+            return True, ""
+
         if self.cmpptn not in cmpPtnInstDict:
             print_err('cp name "{}" in Transfer init not recognized'.format(self.cmpptn))
             exit(1)
@@ -695,6 +740,13 @@ class Open:
         self.init['timingcode'] = {}
 
     def validate(self):
+        # remember this function if it has an interesting timing code dictionary
+        if len(self.init['timingcode']) > 0:
+            TimingCodeFuncs.append(self)
+
+        if not validateFlag:
+            return True, ""
+
         if self.cmpptn not in cmpPtnInstDict:
             msg = 'cp name "{}" in Open init not recognized'.format(self.cmpptn)
             return False, msg 
@@ -702,10 +754,6 @@ class Open:
         ok, msg = validateFuncInCP(self.cmpptn, self.label,'open ("{}" "{}") init validation'.format(self.cmpptn, self.label))
         if not ok:
             return False, msg
-
-        # remember this function if it has an interesting timing code dictionary
-        if len(self.init['timingcode']) > 0:
-            TimingCodeFuncs.append(self)
 
         # the key of timing code is inbound message type
         for mc, fc in self.init['timingcode'].items():
@@ -740,19 +788,25 @@ class Open:
         return self.init
 
 def validateCmpPtns():
+    if not validateFlag:
+        return True, ""
+
     msgs  = []
     for cmpPtnInstName, cpi in cmpPtnInstDict.items():
         valid, msg = cpi.validate()
         if not valid:
             msgs.append(msg)
             
-
     if len(msgs) > 0:
         return False, '\n'.join(msgs)
     return True, ""
 
 
 def validateConnections():
+
+    if not validateFlag:
+        return True, ""
+
     msgs = []
     for conn in connectionList:
         valid, msg = conn.validate()
@@ -785,20 +839,26 @@ def print_err(*a) :
 
 # called
 def validateBool(v):
-    if v in ('TRUE','True','true','T','t','1'):
+    if isinstance(v, str) and v.startswith('@'):
         return True, ""
-    if v in ('FALSE','False','false','F','f','0'):
+
+    if v in ('TRUE','True','true','T','t','1', 1):
+        return True, ""
+    if v in ('FALSE','False','false','F','f','0',0):
         return True, ""
     return False, "error in boolean variable"
 
 def cnvrtBool(v):
+    if isinstance(v, str) and v.startswith('@'):
+        return v
+
     if len(v) == 0:
         return 0
 
-    if v in ('TRUE','True','true','T','t','1'):
+    if v in ('TRUE','True','true','T','t','1', 1):
         return 1
 
-    if v in ('FALSE','False','false','F','f','0'):
+    if v in ('FALSE','False','false','F','f','0', 0):
         return 0
 
     print_err('string "{}" is not a bool'.format(v))
@@ -806,6 +866,9 @@ def cnvrtBool(v):
 
 # 
 def validateFuncInCP(cmpPtnName, funcName, msg):
+    if not validateFlag:
+        return True, ""
+
     if len(cmpPtnName) == 0:
         return False, "unexpected empty cmpPtn name"
 
@@ -821,8 +884,10 @@ def validateFuncInCP(cmpPtnName, funcName, msg):
     msg = '{}: func "{}" not found in CP "{}"'.format(msg, funcName, cmpPtnName)
     return False, msg 
 
- 
 def validateCP(cmpPtnName, msg):
+    if not validateFlag:
+        return True, ""
+
     if len(cmpPtnName) == 0:
         return False, "unexpected empty cmpPtn name"
 
@@ -833,6 +898,9 @@ def validateCP(cmpPtnName, msg):
     return True, ""
 
 def validateMCInClass(mc, funcClass, msg):
+    if not validateFlag:
+        return True, ""
+
     if len(mc) == 0:
         return False, "expected non-empty method code in connection statement"
 
@@ -851,6 +919,9 @@ def cfgStr(initDict):
     return cfg
 
 def validateInitializations(initClassDict):
+    if not validateFlag:
+        return True, ""
+
     errors = 0
 
     # go through the cmpPtns and their functions and make sure each is represented
@@ -890,7 +961,7 @@ def directoryAccessible(path):
 
 
 def main():
-    global mcodes
+    global mcodes, validateFlag
 
     parser = argparse.ArgumentParser()
     parser.add_argument(u'-name', metavar = u'name of system', dest=u'name', required=True)
@@ -940,6 +1011,11 @@ def main():
     csvDir = args.csvDir
     yamlDir = args.yamlDir
     descDir = args.descDir
+
+    if args.validate is None:
+        validateFlag = False
+    else:
+        validateFlag = True
 
     # make sure we have access to these directories
     test_dirs = (csvDir, yamlDir, descDir)

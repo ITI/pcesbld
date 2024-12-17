@@ -14,6 +14,7 @@ routerList  = []
 endptList   = []
 intrfcList  = []
 
+validateFlag = False
 
 netAttrbIdx = {}
 netParamIdx = {}
@@ -147,6 +148,17 @@ class Network:
         scale = self.attrb['scale']
         wildcard = self.attrb['*']
 
+        trace = self.param['trace']
+        valid, msg = validateBool(trace)
+        if not valid:
+            msg = 'error: Network param lists non-Boolean representation '"{}"' for trace parameter'.format(trace)
+            errs.append(msg)
+        else:
+            self.param['trace'] = cnvrtBool(trace)
+
+        if not validateFlag:
+            return True, ""
+ 
         # warn if 
         #  - the network entry lists a network name not found in the attributes list
         #  - the network entry lists a group not found in the attributes list
@@ -200,8 +212,6 @@ class Network:
                     msg = 'warning: Network attribute list gives group name "{}" not found in the system model'.format(grp)
                     warnings.append(msg)
 
-        # check the legality of the network parameters
-        trace = self.param['trace']
 
         testParams = ('latency', 'bandwidth', 'capacity')
         for param in testParams:
@@ -221,14 +231,6 @@ class Network:
             except:
                 msg = 'error: Network param lists non-floating point "{}"'.format(param)
                 errs.append(msg)
-
-        trace = self.param['trace']
-        valid, msg = validateBool(trace)
-        if not valid:
-            msg = 'error: Network param lists non-Boolean representation '"{}"' for trace parameter'.format(trace)
-            errs.append(msg)
-        else:
-            self.param['trace'] = cnvrtBool(trace)
 
         if len(warnings) > 0:
             for msg in warnings:
@@ -283,6 +285,16 @@ class Switch:
         errs = []
         warnings = []
 
+        trace = self.param['trace']
+        valid, msg = validateBool(trace)
+        if not valid:
+            msg = 'error: Switch param lists non-Boolean representation '"{}"' for trace parameter'.format(trace)
+            errs.append(msg)
+        else:
+            self.param['trace'] = cnvrtBool(trace)
+
+        if not validateFlag:
+            return True, "" 
 
         # warn if 
         #  - the switch entry lists a switch name not found in the attributes list
@@ -307,7 +319,6 @@ class Switch:
                 # if the wildcard is not true, clear it
                 if not wcValue:
                     self.attrb['*'] = ''
-
 
         if len(switchName) > 0:
             nameFound = False
@@ -355,15 +366,6 @@ class Switch:
                 msg = 'error: Switch parameter list gives switch model "{}" not found in the system model'.format(modelParam)
                 errs.append(msg)
  
-        trace = self.param['trace']
-
-        valid, msg = validateBool(trace)
-        if not valid:
-            msg = 'error: Switch param lists non-Boolean representation '"{}"' for trace parameter'.format(trace)
-            errs.append(msg)
-        else:
-            self.param['trace'] = cnvrtBool(trace)
-
         if len(warnings) > 0:
             for msg in warnings:
                 print_err(msg)
@@ -417,6 +419,16 @@ class Router:
         errs = []
         warnings = []
 
+        trace = self.param['trace']
+        valid, msg = validateBool(trace)
+        if not valid:
+            msg = 'error: Router param lists non-Boolean representation '"{}"' for trace parameter'.format(trace)
+            errs.append(msg)
+        else:
+            self.param['trace'] = cnvrtBool(trace)
+
+        if not validateFlag:
+            return True, ""
 
         # warn if 
         #  - the router entry lists a router name not found in the attributes list
@@ -489,15 +501,6 @@ class Router:
                 msg = 'error: Router parameter list gives router model "{}" not found in the system model'.format(modelParam)
                 errs.append(msg)
  
-        trace = self.param['trace']
-
-        valid, msg = validateBool(trace)
-        if not valid:
-            msg = 'error: Router param lists non-Boolean representation '"{}"' for trace parameter'.format(trace)
-            errs.append(msg)
-        else:
-            self.param['trace'] = cnvrtBool(trace)
-
         if len(warnings) > 0:
             for msg in warnings:
                 print_err(msg)
@@ -551,6 +554,16 @@ class Endpoint:
         errs = []
         warnings = []
 
+        trace = self.param['trace']
+        valid, msg = validateBool(trace)
+        if not valid:
+            msg = 'error: Router param lists non-Boolean representation '"{}"' for trace parameter'.format(trace)
+            errs.append(msg)
+        else:
+            self.param['trace'] = cnvrtBool(trace)
+
+        if not validateFlag:
+            return True, ""
 
         # warn if 
         #  - the endpt entry lists a endpt name not found in the attributes list
@@ -623,15 +636,6 @@ class Endpoint:
                 msg = 'error: Endpoint parameter list gives endpt model "{}" not found in the system model'.format(modelParam)
                 errs.append(msg)
  
-        trace = self.param['trace']
-
-        valid, msg = validateBool(trace)
-        if not valid:
-            msg = 'error: Endpoint param lists non-Boolean representation '"{}"' for trace parameter'.format(trace)
-            errs.append(msg)
-        else:
-            self.param['trace'] = cnvrtBool(trace)
-
         if len(warnings) > 0:
             for msg in warnings:
                 print_err(msg)
@@ -685,6 +689,17 @@ class Interface:
         # intrfcParm  = ('latency', 'bandwidth', 'mtu', 'trace')
         errs = []
         warnings = []
+
+        trace = self.param['trace']
+        valid, msg = validateBool(trace)
+        if not valid:
+            msg = 'error: Interface param lists non-Boolean representation '"{}"' for trace parameter'.format(trace)
+            errs.append(msg)
+        else:
+            self.param['trace'] = cnvrtBool(trace)
+
+        if not validateFlag:
+            return True, ""
 
         devtype = self.attrb['devtype']
         devname = self.attrb['devname']
@@ -789,14 +804,6 @@ class Interface:
                     msg = 'Interface parameter specifies negative MTU value "{}"'.format(mtu)
                     errs.append(msg)
 
-        trace = self.param['trace']
-        valid, msg = validateBool(trace)
-        if not valid:
-            msg = 'error: Interface param lists non-Boolean representation '"{}"' for trace parameter'.format(trace)
-            errs.append(msg)
-        else:
-            self.param['trace'] = cnvrtBool(trace)
-
         if len(warnings) > 0:
             for msg in warnings:
                 print_err(msg)
@@ -808,6 +815,9 @@ class Interface:
 
 
 def validateNetworks():
+    if not validateFlag:
+        return True, ""
+
     msgs = []
     for net in networkList:
         valid, msg = net.validate()
@@ -820,6 +830,9 @@ def validateNetworks():
     return True, "" 
 
 def validateSwitches():
+    if not validateFlag:
+        return True, ""
+
     msgs = []
     for switch in switchList:
         valid, msg = switch.validate()
@@ -832,6 +845,9 @@ def validateSwitches():
     return True, "" 
 
 def validateRouters():
+    if not validateFlag:
+        return True, ""
+
     msgs = []
     for router in routerList:
         valid, msg = router.validate()
@@ -844,6 +860,9 @@ def validateRouters():
     return True, "" 
 
 def validateEndpoints():
+    if not validateFlag:
+        return True, ""
+
     msgs = []
     for endpt in endptList:
         valid, msg = endpt.validate()
@@ -856,6 +875,9 @@ def validateEndpoints():
     return True, "" 
 
 def validateInterfaces():
+    if not validateFlag:
+        return True, ""
+
     msgs = []
     for intrfc in intrfcList:
         valid, msg = intrfc.validate()
@@ -887,6 +909,8 @@ def print_err(*a) :
 
 # called
 def validateBool(v):
+    if isinstance(v, str) and v.startswith('@'):
+        return True, ""
     if v in ('TRUE','True','true','T','t','1'):
         return True, ""
     if v in ('FALSE','False','false','F','f','0'):
@@ -894,6 +918,9 @@ def validateBool(v):
     return False, "error in boolean variable"
 
 def cnvrtBool(v):
+    if isinstance(v, str) and v.startswith('@'):
+        return v
+
     if v in ('TRUE','True','true','T','t','1'):
         return 1
     if v in ('FALSE','False','false','F','f','0'):
@@ -923,7 +950,7 @@ def directoryAccessible(path):
  
 
 def main():
-    global attrbDesc
+    global attrbDesc, validateFlag
 
     global endptList, networkList, switchList, routerList, intrfcList
 
@@ -959,6 +986,12 @@ def main():
     csvDir = args.csvDir
     yamlDir = args.yamlDir
     descDir = args.descDir
+
+    if args.validate is None:
+        validateFlag = False
+    else:
+        validateFlag = True
+
 
     # make sure we have access to these directories
     test_dirs = (csvDir, yamlDir, descDir)
