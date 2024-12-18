@@ -911,9 +911,11 @@ def print_err(*a) :
 def validateBool(v):
     if isinstance(v, str) and v.startswith('@'):
         return True, ""
-    if v in ('TRUE','True','true','T','t','1'):
+    if isinstance(v, str) and len(v) == 0:
         return True, ""
-    if v in ('FALSE','False','false','F','f','0'):
+    if v in ('TRUE','True','true','yes','Yes','y','Y','T','t','1'):
+        return True, ""
+    if v in ('FALSE','False','false','F','f','no','N','No','n','0'):
         return True, ""
     return False, "error in boolean variable"
 
@@ -921,9 +923,12 @@ def cnvrtBool(v):
     if isinstance(v, str) and v.startswith('@'):
         return v
 
-    if v in ('TRUE','True','true','T','t','1'):
+    if isinstance(v, str) and len(v) == 0:
+        return 0
+
+    if v in ('TRUE','True','true','T','t','yes','Yes','y','Y','1'):
         return 1
-    if v in ('FALSE','False','false','F','f','0'):
+    if v in ('FALSE','False','false','F','f','no','N','No','n','0'):
         return 0
     print_err('string "{}" is not a bool'.format(v))
     return None
@@ -1020,9 +1025,13 @@ def main():
             print_err('unable to open input file "{}"'.format(input_file))
             errs += 1
 
-    with open(attrbDescIn_file, 'r') as rf:
-        attrbDesc = json.load(rf)
-    
+    try: 
+        with open(attrbDescIn_file, 'r') as rf:
+            attrbDesc = json.load(rf)
+    except:
+        print_err('unable to open {}'.format(attrbDescIn_file))
+        errs += 1
+ 
     if errs > 0:
         exit(0)
 

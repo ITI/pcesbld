@@ -1193,13 +1193,9 @@ def main():
             if connections:
                 if len(row[srcCPIdx]) > 0:
                     srcCP = row[srcCPIdx]
-                else:
-                    srcCP = ""
 
                 if len(row[dstCPIdx]) > 0:
                     dstCP = row[dstCPIdx]
-                else:
-                    dstCP = ""
 
                 if len(row[srcLabelIdx]) > 0:
                     srcLabel = row[srcLabelIdx]

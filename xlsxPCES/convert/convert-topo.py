@@ -435,7 +435,9 @@ class WiredConnection:
             intrfc1['devtype'] = 'Endpt'
 
         # figure out which network contains both of these devices
+
         shared, sharedNets = sharedNetwork(self.dev1, self.dev2)
+        
         if not shared:
             msg = 'closed connection ({},{}) endpoints do not share a network'.format(self.dev1, self.dev2)
             msgs.append(msg)
@@ -511,6 +513,7 @@ class WiredConnection:
             msgs.append(msg)
 
         # check that the devices are included in the same network
+
         shared, _ = sharedNetwork(self.dev1, self.dev2)
         if not shared:
             msg = 'connection ({},{}) endpoints do not share a network'.format(self.dev1, self.dev2)
@@ -762,18 +765,35 @@ def sharedNetwork(dev1, dev2):
 
 
 def discoverRefNetworks():
+    msgs = []
+
     # tag the endpoints listed for a network as referencing it
     for net in networkList:
         for endpt in net.endpts:
-            endptNames[endpt].netRef[net.name] = True
+            if endpt not in endptNames:
+                msg = 'definition of endpoint {}, listed in network {} list'.format(endpt, net.name)
+                msgs.append(msg)
+            else: 
+                endptNames[endpt].netRef[net.name] = True
 
         for swtch in net.switches:
-            switchNames[swtch].netRef[net.name] = True
+            if swtch not in switchNames:
+                msg = 'definition of switch {}, listed in network {} list'.format(swtch, net.name)
+                msgs.append(msg)
+            else:
+                switchNames[swtch].netRef[net.name] = True
 
         for router in net.routers:
-            routerNames[router].netRef[net.name] = True
+            if router not in routerNames:
+                msg = 'definition of switch {}, listed in network {} list'.format(swtch, net.name)
+                msgs.append(msg)
+            else:
+                routerNames[router].netRef[net.name] = True
 
-
+    if len(msgs) > 0:
+        return False, '\n'.join(msgs)
+    return True, ""
+ 
 # for now create wireless links, think about what to do with wired links
 # in wireless interfeaces
 def createLinks():
@@ -1053,7 +1073,7 @@ def main():
             if routers:
                 if len(row[devGroupIdx]) > 0:
                     group = row[devGroupIdx]
-                
+               
                 if len(row[devPeerIdx]) > 0:
                     peer = row[devPeerIdx]
                 
@@ -1139,7 +1159,9 @@ def main():
     if not valid:
         msgs.append(msg)
 
-    discoverRefNetworks() 
+    valid, msg = discoverRefNetworks() 
+    if not valid:
+        msgs.append(msg)
 
     valid, msg = validateConnections()
     if not valid:
