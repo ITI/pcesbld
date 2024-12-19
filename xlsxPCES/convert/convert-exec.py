@@ -368,7 +368,8 @@ def main():
             if entry.processor not in modelDict[entry.ptype]:
                 modelDict[entry.ptype].append( entry.processor )
         except:
-            pdb.set_trace()
+            print("oops")
+            exit(1)
 
     tableDict = {'listname' : sysname, 'times': timesByOp }
     with open(func_exec_output_file, 'w') as wf:

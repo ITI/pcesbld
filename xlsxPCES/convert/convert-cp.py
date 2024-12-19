@@ -21,7 +21,9 @@ cpFuncs = {}
 cpInstDict = {}
 cpMC = {}
 edgeMsg = {}
-mcodes = {}
+
+mcodes = {"processPckt":["default","processOp"], "finish":["default","finishOp"], "measure":["default","measure"], "srvRsp":["default"], "srvReq":["default", "request","return"], "transfer":["default"], "authReq":["default"], "bckgrndLd":[]}
+
 messages = {}
 classFuncs = {}
 srvOpDict = {}
@@ -841,7 +843,14 @@ def print_err(*a) :
 def validateBool(v):
     if isinstance(v, str) and v.startswith('@'):
         return True, ""
-
+    
+    if isinstance(v, str) and v.startswith('$'):
+        return True, ""
+   
+    if isinstance(v, str) and len(v) == 0:
+        return True, ""
+   
+ 
     if v in ('TRUE','True','true','T','t','1', 1):
         return True, ""
     if v in ('FALSE','False','false','F','f','0',0):
@@ -852,7 +861,10 @@ def cnvrtBool(v):
     if isinstance(v, str) and v.startswith('@'):
         return v
 
-    if len(v) == 0:
+    if isinstance(v, str) and v.startswith('$'):
+        return v
+
+    if isinstance(v, str) and len(v) == 0:
         return 0
 
     if v in ('TRUE','True','true','T','t','1', 1):
@@ -961,7 +973,7 @@ def directoryAccessible(path):
 
 
 def main():
-    global mcodes, validateFlag
+    global mcodes, validateFlag, initClassDict
 
     parser = argparse.ArgumentParser()
     parser.add_argument(u'-name', metavar = u'name of system', dest=u'name', required=True)
@@ -1033,7 +1045,7 @@ def main():
         exit(1)
 
     csv_input_file = os.path.join(csvDir, args.csv_input)
-    mc_input_file = os.path.join(descDir, args.mc_input)
+    #mc_input_file = os.path.join(descDir, args.mc_input)
     exprmnt_input_file = os.path.join(descDir, 'exprmnt.json')
     cpuOpsDesc_input_file = os.path.join(descDir, args.cpuOpsDesc_input)
 
@@ -1046,7 +1058,8 @@ def main():
     sysname = args.name
 
     errs = 0
-    input_files = (csv_input_file, mc_input_file, cpuOpsDesc_input_file, exprmnt_input_file)
+    #input_files = (csv_input_file, mc_input_file, cpuOpsDesc_input_file, exprmnt_input_file)
+    input_files = (csv_input_file, cpuOpsDesc_input_file, exprmnt_input_file)
     for input_file in input_files:
         if not os.path.isfile(input_file):
             print_err('unable to open input file "{}"'.format(input_file))
@@ -1092,8 +1105,8 @@ def main():
     srvRspDirectIdx = 5
     srvRspTCIdx = 3
 
-    with open(mc_input_file,'r') as rf:
-        mcodes = json.load(rf)
+    #with open(mc_input_file,'r') as rf:
+    #    mcodes = json.load(rf)
 
     with open(cpuOpsDesc_input_file,'r') as rf:
         cpuOps = json.load(rf)
@@ -1114,6 +1127,12 @@ def main():
             row = []
             for v in raw:
                 row.append(v.strip())
+
+            if row[0].find('###') > -1:
+                if initializations:
+                    pieces = row[0].split()
+                    className = pieces[1] 
+                continue
 
             if row[0].find('#') > -1:
                 continue

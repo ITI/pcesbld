@@ -61,13 +61,23 @@ class Mapping():
         else:
             valid, cmsg = validateFuncInCP(self.cmpptn, self.label)
             if not valid:
-                msg = 'mapping expect function {} to be associated with cmpptn {}'.format(self.label, self.cmpptn)
+                if len(self.label) == 0:
+                    labelName = '(empty)'
+                else:
+                    labelName = self.label
+
+                msg = 'mapping expect function {} to be associated with cmpptn {}'.format(labelName, self.cmpptn)
                 msgs.append(msg)
 
         bypass = False
         present = (self.cpu in endpts2models)
         if not present:
-            msg = 'expected endpoint device {} to be expressed in topology description'.format(self.cpu)
+            if len(self.cpu) == 0:
+                cpuName = '(empty)'
+            else:
+                cpuName = self.cpu
+ 
+            msg = 'expected endpoint device {} to be expressed in topology description'.format(cpuName)
             msgs.append(msg)
             bypass = True
         else:
@@ -98,7 +108,19 @@ class Mapping():
                     if op.find('$') > -1:
                         continue
                     if not op in opsFromExec: 
-                        msg = 'expected operation {} for ({},{}) to be func exec table associated with model to which endpoint {} is attached'.format(op, self.cmpptn, self.label, self.cpu)
+                        cmpptnName = '(empty)'
+                        if len(self.cmpptn) > 0:
+                            cmpptnName = self.cmpptn
+
+                        labelName = '(empty)'
+                        if len(self.label) > 0:
+                            labelName = self.label
+
+                        cpuName = '(empty)'
+                        if len(self.cpu) > 0:
+                            cpuName = self.cpu
+
+                        msg = 'expected operation {} for ({},{}) to be func exec table associated with model to which endpoint {} is attached'.format(op, cmpptnName, labelName, cpuName)
                         msgs.append(msg)
 
         if len(msgs) > 0:
@@ -119,7 +141,12 @@ def validateFuncInCP(cmpptn, label):
         msgs.append(msg)
 
     elif label not in funcDescDict[cmpptn]:
-        msg = 'expected func {} to be part of cmp ptn {}'.format(label, cmpptn)
+        if len(label) == 0:
+            labelName = '(empty)'
+        else:
+            labelName = label
+
+        msg = 'expected func {} to be part of cmp ptn {}'.format(labelName, cmpptn)
         msgs.append(msg)
 
     if len(msgs) > 0:

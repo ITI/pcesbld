@@ -132,9 +132,9 @@ class Switch:
         self.name = row[devNameIdx]
         self.model = row[devModelIdx]
         if len(row[devSimpleIdx]) == 0:
-            self.simple = 'TRUE'
+            self.simple = 1 
         else:
-            self.simple = row[devSimpleIdx]
+            self.simple = 0
         self.groups = []
         self.peers = []
         self.faces = []
@@ -187,8 +187,6 @@ class Switch:
             msg = 'switch {} model {} not recognized from timing file'.format(self.name, self.model)
             msgs.append(msg)
 
-
-
         for peer in self.peers:
             if not validDev(peer):
                 msg = 'switch {} declares unrecognized peer {}'.format(self.name, peer)
@@ -216,7 +214,12 @@ class Router:
     def __init__(self, row): 
         self.name = row[devNameIdx]
         self.model = row[devModelIdx]
-        self.simple = row[devSimpleIdx]
+
+        if len(row[devSimpleIdx]) == 0:
+            self.simple = 0 
+        else:
+            self.simple = 1
+
         self.groups = []
         self.peers = []
         self.faces = []
@@ -269,7 +272,7 @@ class Router:
 
     def repDict(self):
         rd = {'name': self.name, 'groups': self.groups, 'model': self.model, 
-            'simple': self.simple, 'interfaces': self.intrfcs}
+            'simple': 1, 'interfaces': self.intrfcs}
         return rd
 
     def attrbDict(self):
@@ -327,8 +330,11 @@ class Endpt:
         if len(self.model) == 0:
             msg = 'endpoint {} lacks model description'.format(self.name)
             msgs.append(msg)
+
+
         if len(modelDict) > 0 and len(self.model) > 0 and self.model not in modelDict['CPU']:
             msg = 'endpoint {} model {} not recognized from devDesc file'.format(self.name, self.model)
+            msgs.append(msg)
 
         for peer in self.peers:
             if not validDev(peer):
@@ -395,7 +401,6 @@ class WirelessConnection:
         intrfc['wireless'] = []
         intrfc['cable'] = ""
         intrfc['faces'] = self.network
-        intrfc['devname'] = self.dev
 
         if self.dev1 in switchNames:
             intrfc['devtype'] = 'Switch'
@@ -409,7 +414,7 @@ class WirelessConnection:
         return intrfc
 
 def IntrfcAttrb(intrfc):
-    ia = {'name':intrfc['name'], 'groups': intrfc['groups'], 'devtype': intrfc['devtype'], 'devname': intrfc['devname'], 'media': intrfc['mediatype'], 'faces': intrfc['faces']}
+    ia = {'name':intrfc['name'], 'groups': intrfc['groups'], 'devtype': intrfc['devtype'], 'media': intrfc['mediatype'], 'faces': intrfc['faces']}
     return ia
 
 class WiredConnection:
@@ -425,7 +430,6 @@ class WiredConnection:
         intrfc1['device'] = self.dev1
         intrfc1['carry'] = []
         intrfc1['wireless'] = []
-        intrfc1['devname'] = self.dev1
 
         if self.dev1 in switchNames:
             intrfc1['devtype'] = 'Switch'
@@ -454,7 +458,6 @@ class WiredConnection:
         intrfc2['device'] = self.dev2
         intrfc2['carry'] = []
         intrfc2['wireless'] = []
-        intrfc2['devname'] = self.dev2
 
         if self.dev2 in switchNames:
             intrfc2['devtype'] = 'Switch'
@@ -553,6 +556,9 @@ def validateBool(v):
     if isinstance(v, str) and v.startswith('@'):
         return True, ""
 
+    if isinstance(v, str) and v.startswith('$'):
+        return True, ""
+
     if isinstance(v, str) and len(v) == 0:
         return True
 
@@ -564,6 +570,9 @@ def validateBool(v):
 
 def cnvrtBool(v):
     if isinstance(v, str) and v.startswith('@'):
+        return v
+
+    if isinstance(v, str) and v.startswith('$'):
         return v
 
     if isinstance(v, str) and len(v) == 0:
@@ -837,7 +846,7 @@ def wiredoryAccessible(path):
  
  
 def main():
-    global endptList, networkList, switchList, routerList, wiredConnList, validateFlag
+    global endptList, networkList, switchList, routerList, wiredConnList, validateFlag, modelDict
 
     parser = argparse.ArgumentParser()
     parser.add_argument(u'-name', metavar = u'name of system', dest=u'name', required=True)

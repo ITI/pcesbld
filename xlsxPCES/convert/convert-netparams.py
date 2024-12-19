@@ -911,8 +911,13 @@ def print_err(*a) :
 def validateBool(v):
     if isinstance(v, str) and v.startswith('@'):
         return True, ""
+
+    if isinstance(v, str) and v.startswith('$'):
+        return True, ""
+
     if isinstance(v, str) and len(v) == 0:
         return True, ""
+
     if v in ('TRUE','True','true','yes','Yes','y','Y','T','t','1'):
         return True, ""
     if v in ('FALSE','False','false','F','f','no','N','No','n','0'):
@@ -921,6 +926,9 @@ def validateBool(v):
 
 def cnvrtBool(v):
     if isinstance(v, str) and v.startswith('@'):
+        return v
+
+    if isinstance(v, str) and v.startswith('$'):
         return v
 
     if isinstance(v, str) and len(v) == 0:

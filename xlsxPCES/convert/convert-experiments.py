@@ -104,7 +104,7 @@ def validateUniqueness(exprmntList):
     for idx in range(0, len(exprmntList)-1):
         for jdx in range(idx+1, len(exprmntList)):
             if exprmntList[idx].equals(exprmntList[jdx]):
-                msg = 'Duplicated experiment {}'.format(exprmntList[idx])
+                msg = 'Duplicated experiment {}'.format(exprmntList[idx].name)
                 msgs.append(msg)
     if len(msgs) > 0:
         return False, '\n'.join(msgs)
@@ -129,6 +129,7 @@ def directoryAccessible(path):
         return True
 
 def main():
+    global variableName
     parser = argparse.ArgumentParser()
     parser.add_argument(u'-name', metavar = u'name of system', dest=u'name', required=True)
     parser.add_argument(u'-validate', action='store_true', required=False)
@@ -171,7 +172,7 @@ def main():
     if len(errs) > 0:
         for msg in errs:
             print(msg)
-        exit(1)
+        exit(0)
 
     csv_input_file = os.path.join(csvDir, args.csv_input)
     experiment_output_file = os.path.join(yamlDir, args.experiments)
@@ -192,8 +193,8 @@ def main():
             for v in raw:
                 row.append(v.strip())
 
-            if comment(row[0]):
-                continue
+
+
 
             if empty(row):
                 continue
@@ -204,12 +205,15 @@ def main():
             if row[0] == 'Experiments':
                 continue 
 
-            if row[0] == 'name':
+            if row[0].find('###') > -1 or row[0].find('name') > -1: 
                 for idx in range(1, len(row)):
                     if len(row[idx]):
                         variableName.append(row[idx])
                     else:
                         break
+                continue
+
+            if comment(row[0]):
                 continue
   
             experiments.append(ExperimentEntry(row))
@@ -224,14 +228,14 @@ def main():
         if len(msgs) > 0:
             for msg in msgs:
                 print(msg)
-            exit(1)
+            exit(0)
 
         valid, msgs = validateUniqueness(experiments)
         if not valid:
             msgList = msgs.split('\n')
             for msg in msgList:
                 print(msg)
-            exit(1) 
+            exit(0) 
 
         expList = []
         for exprmnt in experiments:
