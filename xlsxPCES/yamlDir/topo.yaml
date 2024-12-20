@@ -7,7 +7,6 @@ endpts:
   - cable: intrfc@hub-hmiDev
     carry: []
     device: hmiDev
-    devname: hmiDev
     devtype: Endpt
     faces: central
     groups: []
@@ -23,7 +22,6 @@ endpts:
   - cable: intrfc@hub-embeddedDev
     carry: []
     device: embeddedDev
-    devname: embeddedDev
     devtype: Endpt
     faces: central
     groups: []
@@ -39,7 +37,6 @@ endpts:
   - cable: intrfc@hub-sslDev
     carry: []
     device: sslDev
-    devname: sslDev
     devtype: Endpt
     faces: central
     groups: []
@@ -68,7 +65,6 @@ switches:
   - cable: intrfc@hmiDev-hub
     carry: []
     device: hub
-    devname: hub
     devtype: Switch
     faces: central
     groups: []
@@ -78,7 +74,6 @@ switches:
   - cable: intrfc@sslDev-hub
     carry: []
     device: hub
-    devname: hub
     devtype: Switch
     faces: central
     groups: []
@@ -88,7 +83,6 @@ switches:
   - cable: intrfc@embeddedDev-hub
     carry: []
     device: hub
-    devname: hub
     devtype: Switch
     faces: central
     groups: []
