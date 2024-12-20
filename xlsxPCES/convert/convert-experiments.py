@@ -17,17 +17,29 @@ variableName = []
 
 sheetNames = ('topo', 'cp', 'execTime', 'mapping', 'netParams')
 
+def convBoolean(v):
+    if isinstance(v,str):
+        if v in ('T','True','TRUE', 'yes', 'YES', 'Y', 'y'):
+            return "1"
+        if v in ('F','False', 'FALSE', 'no', 'NO', 'N', 'n'):
+            return "0"
+
+    return v 
+
 class ExperimentEntry:
     def __init__(self, row):
         self.name = row[expNameIdx]
         self.variableDict = {}
         for idx in range(1,len(variableName)+1):
-            self.variableDict[ variableName[idx-1] ] = row[idx]
+            self.variableDict[ variableName[idx-1] ] = convBoolean(row[idx])
 
     def validate(self):
         msgs = []
         # ensure that every sheet referenced is recognized
         for _, valueStr in self.variableDict.items():
+            if not isinstance(valueStr, str):
+                continue
+ 
             pieces = valueStr.split(':')
             if len(pieces) > 1: 
                 sheets = pieces[1:]
@@ -192,9 +204,6 @@ def main():
             row = []
             for v in raw:
                 row.append(v.strip())
-
-
-
 
             if empty(row):
                 continue

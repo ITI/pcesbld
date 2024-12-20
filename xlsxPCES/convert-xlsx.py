@@ -213,7 +213,11 @@ def main():
                 shutil.copyfile(templateFile, inputFile)
      
             # make the modifications
+
+            checkfile = {}
+   
             for code, value in exprmnt.items():
+                value = str(value)
                 if code == 'name' or len(code) == 0:
                     continue
                 pieces = code.split(',')
@@ -223,16 +227,37 @@ def main():
                 else:
                     sheets = sheetNames
 
+                unresolved = {}
                 for sheet in sheets:
                     inputFile = os.path.join(csvDir, sheet+'-sheet.csv')
+                    checkfile[inputFile] = True
                     tmpFile = os.path.join(csvDir, 'tmp-'+sheet+'-sheet.csv')
                     with open(inputFile, 'r') as rf:
                         with open(tmpFile, 'w') as wf:
                             for line in rf:
                                 newline = line.replace(token, value)
                                 wf.write(newline)
-                    shutil.copyfile(tmpFile, inputFile)
-                    os.remove(tmpFile)
+
+            unresolved = {}
+            for cfile in checkfile:
+                with open(cfile, 'r') as tf:
+                    for line in tf:
+                        if line.find('$') > -1 or line.find('@') > -1:
+                            pieces = line.split(',')
+                            for piece in pieces:
+                                if piece.find('$') > -1 or piece.find('@') > -1:
+                                    unresolved[piece] = sheet
+
+
+            if len(unresolved) == 0:
+                shutil.copyfile(tmpFile, inputFile)
+                os.remove(tmpFile)
+
+                if len(unresolved) > 0:
+                    print('undefined symbols: ')
+                    for symbol, sheet in unresolved.items():
+                        print('symbol {} in sheet {}'.format(symbol, sheet))
+                    exit(0)
 
             # all the symbol replacements are done, so convert all the sheets, (again)
             # N.B. a sheet that was modified may generate aux files that depend on the

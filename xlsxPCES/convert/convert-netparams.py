@@ -183,7 +183,7 @@ class Network:
                 wcValue = cnvrtBool(wildcard)
 
                 # if the wildcard is not true, clear it
-                if not wcValue:
+                if wcValue == "0":
                     self.attrb['*'] = ''
 
         attrbList = attrbDesc['Network']
@@ -317,7 +317,7 @@ class Switch:
                 wcValue = cnvrtBool(wildcard)
 
                 # if the wildcard is not true, clear it
-                if not wcValue:
+                if wcValue == "0":
                     self.attrb['*'] = ''
 
         if len(switchName) > 0:
@@ -452,7 +452,7 @@ class Router:
                 wcValue = cnvrtBool(wildcard)
 
                 # if the wildcard is not true, clear it
-                if not wcValue:
+                if wcValue == "0":
                     self.attrb['*'] = ''
 
         if len(routerName) > 0:
@@ -587,7 +587,7 @@ class Endpoint:
                 wcValue = cnvrtBool(wildcard)
 
                 # if the wildcard is not true, clear it
-                if not wcValue:
+                if wcValue == "0":
                     self.attrb['*'] = ''
 
         if len(endptName) > 0:
@@ -813,7 +813,6 @@ class Interface:
 
         return True, ""
 
-
 def validateNetworks():
     if not validateFlag:
         return True, ""
@@ -932,12 +931,12 @@ def cnvrtBool(v):
         return v
 
     if isinstance(v, str) and len(v) == 0:
-        return 0
+        return "0"
 
     if v in ('TRUE','True','true','T','t','yes','Yes','y','Y','1'):
-        return 1
+        return "1"
     if v in ('FALSE','False','false','F','f','no','N','No','n','0'):
-        return 0
+        return "0"
     print_err('string "{}" is not a bool'.format(v))
     return None
 
@@ -1187,34 +1186,6 @@ def main():
     with open(exp_output_file, 'w') as wf:
         yaml.dump(expDict, wf, default_flow_style=False)
 
-
-    '''
-    valid, msg = validateSwitches()
-    if not valid:
-        msgs.append(msg)
-
-    valid, msg = validateRouters()
-    if not valid:
-        msgs.append(msg)
-
-    valid, msg = validateEndpts()
-    if not valid:
-        msgs.append(msg)
-
-    valid, msg = validateIntrfcs()
-    if not valid:
-        msgs.append(msg)
-
-    if len(msgs) > 0:
-        for msg in msgs:
-            msg.replace('\n','')
-            print_err(msg)
-        exit(1)
-    '''
-
-    # with open(cpuDesc_output_file, 'w') as wf:
-    #    json.dump(desc, wf)
- 
 if __name__ == '__main__':
     main()
 

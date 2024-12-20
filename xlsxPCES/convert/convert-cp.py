@@ -508,8 +508,8 @@ class Start:
         self.cmpptn = row[1]
         self.label = row[2]
         try: 
-            self.init = {'pcktlen': int(row[3]), 
-                         'msglen': int(row[4]), 'msgtype': row[5],
+            self.init = {'pcktlen': row[3], 
+                         'msglen': row[4], 'msgtype': row[5],
                          'starttime': row[6], 'data': str(row[7]), 
                           'trace': cnvrtBool(row[8])} 
         except:
@@ -521,7 +521,6 @@ class Start:
         msgs = []
         try:
             starttime = float(self.init['starttime'])
-            self.init['starttime'] = starttime
         except:
             if validateFlag:
                 msg = 'start function gives non floating point start time {}'.format(self.init['starttime'])
@@ -539,15 +538,14 @@ class Start:
                 msgs.append(msg)
 
         # check lengths of pckt and msg
-        if not (0 <= self.init['pcktlen'] < 1501) or \
-                not (0 <= self.init['msglen'] < 1501) or \
-                not (self.init['pcktlen'] <= self.init['msglen']) :
+        if not (0 <= int(self.init['pcktlen']) < 1501) or \
+                not (0 <= int(self.init['msglen']) < 1501) or \
+                not (int(self.init['pcktlen']) <= int(self.init['msglen'])) :
             msg = 'initial pckt or msg length size problem'
             msgs.append(msg)
 
         try:
             starttime = float(self.init['starttime'])
-            self.init['starttime'] = starttime
         except:
             msg = 'start function gives non floating point start time {}'.format(self.init['starttime'])
             msgs.append(msg)
@@ -865,13 +863,13 @@ def cnvrtBool(v):
         return v
 
     if isinstance(v, str) and len(v) == 0:
-        return 0
+        return "0"
 
     if v in ('TRUE','True','true','T','t','1', 1):
-        return 1
+        return "1"
 
     if v in ('FALSE','False','false','F','f','0', 0):
-        return 0
+        return "0"
 
     print_err('string "{}" is not a bool'.format(v))
     return None
