@@ -15,7 +15,7 @@ Endpoint,,,,,,,,,,
 ,,,,,,,,,,
 Interface,,,,,,,,,,
 ### name,csv groups,devtype,devname,media,faces ,*,latency (musec),bandwidth (Mbps),MTU,trace
-,,,,,,True,5,$bndwidth,,False
+,,,,,,True,5,$bndwdth,,False
 ,,,,,,,,,,
 ### color key,,,,,,,,,,
 ### Category label,,,,,,,,,,

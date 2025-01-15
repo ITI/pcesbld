@@ -1,9 +1,0 @@
--csvDir ./csvDir
--yamlDir ./yamlDir
--descDir ./descDir
--name exampleName
--csvIn topo-sheet.csv
--topoOut topo.yaml
--modelDescIn devModel.json
--cpuDescOut cpuDesc.json
--attrbDescOut attrb.json

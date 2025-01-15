@@ -31,21 +31,21 @@ class ExperimentEntry:
         self.name = row[expNameIdx]
         self.variableDict = {}
         for idx in range(1,len(variableName)+1):
-            self.variableDict[ variableName[idx-1] ] = convBoolean(row[idx])
+            self.variableDict[ variableName[idx-1] ] = convBoolean("".join(row[idx].split()))
 
     def validate(self):
         msgs = []
         # ensure that every sheet referenced is recognized
-        for _, valueStr in self.variableDict.items():
-            if not isinstance(valueStr, str):
+        for variable in self.variableDict:
+            if not isinstance(variable, str):
                 continue
  
-            pieces = valueStr.split(':')
+            pieces = variable.split(':')
             if len(pieces) > 1: 
                 sheets = pieces[1:]
                 for sheet in sheets:
                     if sheet not in sheetNames:
-                        msgs.append('sheet name {} in value specification {} is not recognized'.format(sheet, valueStr))
+                        msgs.append('sheet name {} in value specification {} is not recognized'.format(sheet, variable))
 
         if len(msgs):
             return False, '\n'.join(msgs)
@@ -203,7 +203,7 @@ def main():
         for raw in csvrdr:
             row = []
             for v in raw:
-                row.append(v.strip())
+                row.append(''.join(v.split()))
 
             if empty(row):
                 continue
@@ -214,10 +214,12 @@ def main():
             if row[0] == 'Experiments':
                 continue 
 
-            if row[0].find('###') > -1 or row[0].find('name') > -1: 
+            variablesRow = (row[0].find('###') > -1) or (row[0].find('name') > -1)
+
+            if variablesRow:
                 for idx in range(1, len(row)):
-                    if len(row[idx]):
-                        variableName.append(row[idx])
+                    if len(row[idx]) > 0:
+                        variableName.append("".join(row[idx].split()))
                     else:
                         break
                 continue

@@ -8,29 +8,42 @@ The distributed format assumes that a single spreadsheet with several sheets is 
 
 The source code for the xlsPCES system is available through github.com/iti/pcesbld.   The python script that separates different sheets into .csv files expects two packages to have been installed, 'pandas', and 'openpyxl'.
 
-To use xlsxPCES one should obtain the code at github.com/iti/pcesbld.  The package has subdirectory *xlsxpces*, which contains subdirectories *convert*, *examples*, and *template*.  Subdirectory convert holds the python scripts involved into the tools execution, examples holds examples of xlsx projects (including xlsx file and output files), and *template* holds a blank xlsxPCES input file *template.xlsx* that can be copied and filled out for new projects.   
+To use xlsxPCES one should obtain the code at github.com/iti/pcesbld.  The package has subdirectory *xlsxpces*, which contains subdirectories *convert*, *examples*, and *template*.  Subdirectory *convert* holds the python scripts involved into the tools execution, examples holds examples of xlsx projects (including xlsx file and output files), and *template* holds a blank xlsxPCES input file *template.xlsx* that can be copied and filled out for new projects.   
 
-The script that coordinates the xlsx -> pces transformation is *pcesbld/xlsxpces/convert/convert-xlsx.py* .   It has up to eight command-line parameters:
+The script that coordinates the xlsx -> pces transformation is *pcesbld/xlsxpces/convert/runConvert.py* .   It has up to eight command-line parameters:
 
-| flag        | argument type       | explanation                                                  |
-| ----------- | ------------------- | ------------------------------------------------------------ |
-| -argsDir    | File directory path | Directory where the argument files for conversion scripts are found |
-| -csvDir     | File directory path | Directory where .csv files extracted from .xlsx file are placed |
-| -resultsDir | File directory path | Directory where **pces** input files are written             |
-| -descDir    | File directory path | Directory where auxiliary files used to validate input are written |
-| -working    | File directory path | Location for scratch files                                   |
-| -xlsx       | Path to file        | Location of input .xlsx file                                 |
-| -build      | Boolean flag        | Build both **pces** input files and extract .csv files from .xlsx file |
+| flag         | argument type       | explanation                                                  |
+| ------------ | ------------------- | ------------------------------------------------------------ |
+| -name        | string              | Name for system model                                        |
+| -argsDir     | File directory path | Directory for conversion scripts arguments                   |
+| -csvDir      | File directory path | Directory where .csv files extracted from .xlsx file are placed |
+| -yamlDir     | File directory path | Directory where yaml **pces** input files are written        |
+| -descDir     | File directory path | Directory for auxiliary files used to validate input         |
+| -workingDir  | File directory path | Location for scratch files                                   |
+| -convertDir  | File directory path | Directory for python conversion scripts                      |
+| -templateDir | File directory path | Directory for .csv files with symbolic variables             |
+| -xlsx        | Path to file        | Location of input .xlsx file                                 |
+| -build       | Boolean flag        | Build both **pces** input files and extract .csv files from .xlsx file |
 
 These may be written, one per line, into a file that can be passed rather then all the parameters on the command-line, e.g., (from the home directory *pcesbld/xlsxpces*)
 
 ```
-% python3 convert-xlsx.py -is args-xlsx
+% python3 runConvert.py -is args-xlsx
 ```
 
 The *xlsx-args* file included in the distribution references an empty template .xlsx file (and so must be changed), and references default subdirectories for the result of the arguments that are all subdirectories of  *pcesbld/xlsxpces*, e.g., *descDir*, *resultsDir*, *csvDir*, and *working*.
 
 Once the **pces** input files are created there is no need to remember the .csv files (provided of course that the input .xlsx file is retained).  The auxiliary files written into the -descDir location aren't used directly by **pces**, but may be useful to auxiliary functions such as a graphical user interface.   
+
+#### xlsxPCES Execution
+
+*runConvert.py* starts with sanity checks.   Ideally all the paths given in the input arguments exist (and their existence is checked), but *csvDir*,  *descDir*, and *workingDir* are entirely temporary, and so if the values given them on the command-line don't map to existing directories, temporary scratch directories are created for them.
+
+Next *runConvery.py* converts the input spreadsheet with several sheets into several .csv files, one per sheet. These are written into the *csvDir* directory.  If the '-build' option is absent the script exits, having done all that was asked of it.  The more usual case is when '-build' is set.    One of the most useful features of xlsxPCES is the effort it puts into validating the expression of the model.   We will see more of this when stepping through the running example.  But the validity of a model depends on all of its parameter values, and .csv files with symbolic variables don't admit immediately to verification, because some assignment of values to those variables may result in valid models, and others not.   Correspondingly xlxsPCES works through every assignment of values to variables that are expressed in the 'experiments' sheet, essentially creating the full set of parameters for every run, and for each such set validate it.
+
+Now the .csv files containing symbolic systems are in *templateDir*.  To create a set of .csv files that are fully instantiated for a given run, script *runConvey.py* takes each, applies the string-to-string transformation required for assignment of values to symbolic variables, and deposits the results in the scratch directory *csvDir*. Next, for each sheet (and in a particular order required to satisfy certain dependencies) a python script tailored for that sheet is run.  These scripts are found in the directory pointed to by the '-convertDir' command-line arguement.  The argument file for that script is created by *runConvert.py* as a combination of some arguments that are common to all the conversion scripts, and others that are specific to the script, and is written into scratch directory *workingDir*.  The validation checks for some scripts are aided by the creation of additional data structures that result from analysis of .csv files analyzed earlier.  When a conversion script creates this kind of file it is written into the scratch *descDir* directory.
+
+If the 'experiments' sheet identifies that there are N runs to be performed, this process of creating a fully instantiated set of .csv files and analyzing the set of them for validity is repeated N times, but without creating .yaml output files.   So then if all N runs are validated properly, in a last transformation the conversion scripts create .yaml files from the .csv files with embedded symbolic variables, and the resulting files also carry these symbolic variables.   This final set of files is written into the directory identified with the '-yamlDir' flag in *runConvert.py*'s argument file.
 
 #### A Running Example
 
@@ -56,7 +69,7 @@ Our discussion starts at a point where we can assume that the identity of a func
 
 The **pces** approach is to use the 'message type' field of the inbound message to determine which response should be applied, i.e., which of the possible subroutines should be called.   Figure 2 below identifies the steps and some of the function configuration variables that are involved in this decision.   Knowing that a model may support more message types than it will particular subroutines to call in response to receipt of a message, **pces** requires almost all function classes to be configured with a dictionary that xlesPCES identifies as 'msg2mc'.   Each function has its own distinct 'msg2mc' dictionary. The key to the dictionary is the message type field of the input message, the value mapped to is a string we call a 'method code'.  The dictionary approach allows many message types to map to the same method code, as appropriate.
 
-Next, the class of the function selects a so-called 'response method' dictionary which is part of the **pces** internal data structures. Given the identity of that dictionary and the method code, **pces** looks up the identity of a response method to call, passing along as input the inbound message.  The response method executes, and does two important things.   One is to introduce a simulated processing time delay associated with the response, the other is to choose the function to next be given the message.  To include a timing delay, the response method looks up an operation code that will be known to the table of function timings.  Since the operation to be performed can be assumed to be closely linked to the particular response method choosen, functions that advance simulation time by non-zero durations of time are configured with a dictionary called 'timingcode'.   The message type of the inbound message is the key to the lookup, and the result returned is an op code for use in execution time lookup.  Other parameters to the function execution time lookup include the model of the processor assumed to be executing the operation, and the length of the message being processed.   The response method then schedules a time in the future to simulate the completion of the simulated operation.    When *that* subroutine executes, it chooses the destination function and message type to place on the forwarded message.   If it happens that in the computational pattern graph view of the functions there is exactly one output edge, then the destination function and the message type are extracted from the graph.   If instead there is more than one output edge **pces** selects among the options by the expedient of using a dictionary bound to the specific function, called 'msg2msg', which encodes a transformation of the type of the inbound message (the msg2msg key), to another string which will be used as a message type.  That string, say, 'outMsgType', will appear as the edge label on one of the multiple edges departing the function.   The edge chosen (and hence the destination of the forwarded message), is the one whose message label matches 'outMsgType'.
+Next, the function has a 'RespMethods' dictionary. Given the that dictionary and the method code, **pces** looks up the identity of a response method to call, passing along as input the inbound message.  The response method executes, and does two important things.   One is to introduce a simulated processing time delay associated with the response, the other is to choose the function to next be given the message.  To include a timing delay, the response method looks up an operation code from the function's 'timingcode' dictionary that will be known to the table of function timings.    The message type of the inbound message is the key to the lookup, and the result returned is an op code for use in execution time lookup.  Other parameters to the function execution time lookup include the model of the processor assumed to be executing the operation, and the length of the message being processed.   The response method then schedules a time in the future to simulate the completion of the simulated operation.    When *that* subroutine executes, it chooses the destination function and message type to place on the forwarded message.   If it happens that in the computational pattern graph view of the functions there is exactly one output edge, then the destination function and the message type are extracted from the graph.   If instead there is more than one output edge **pces** selects among the options by the expedient of using a dictionary bound to the specific function, called 'msg2msg', which encodes a transformation of the type of the inbound message (the msg2msg key), to another string which will be used as a message type.  That string, say, 'outMsgType', will appear as the edge label on one of the multiple edges departing the function.   The edge chosen (and hence the destination of the forwarded message), is the one whose message label matches 'outMsgType'.
 
 
 
@@ -177,15 +190,15 @@ Each of the functions we use need to be configured with parameters that impact t
 
 ​								Figure 7: **pces** function classes
 
-We also include the class-dependent list of 'method codes' that the out-of-the-github-box version of **pces** contains.  These place a key role in defining a function's response to an incoming message.   In another document we (will) describe how a user can extend **pces** out-of-the-box behavior to include details that are special to the model, and/or should not be publically available through github.  Part of that extension can be including additional entries into the tables indexed by the method codes.
+We also include the class-dependent list of 'method codes' that the out-of-the-github-box version of **pces** contains.  These place a key role in defining a function's response to an incoming message.   In another document [User-Extensions](#) we describe how a user can extend **pces** out-of-the-box behavior to include details that are special to the model, and/or should not be publically available through github.  Part of that extension can include additional entries into the tables indexed by the method codes.
 
-
+As a final preliminary note, we point out that in the initializations to follow, every function can be tagged with list of arbitrary 'group names' that are defined by the user.  One can think of these as user-defined group labels applied to the functions.    The use of these is to make available to user-developed code a means of identifying functions that the user has tagged as being of particular interest.
 
 We now consider the initialization parameters, class by class.
 
 ##### start, finish
 
-Choices a modeler has when starting an execution thread include specification of the characteristics of the message that is carried through the thread.  Those specifications include the initial message type, the size (in bytes) of the data frame that carries the message, and the size (in bytes) of the data packet being processed.  These selections are found in the columns labeled 'msg type', 'pcktlen', and 'msglen', respectively. 	One may also specify a non-zero start time for executing the function, in the 'start time' column.  A blank cell is permitted, and is interpreted as 0.0 .  With an eye towards user extensions of the default start function methods, the start parameters include a string parameter 'data', which can carry whatever information that extension requires, provided it is serialized into string form and can be deserialized by the extension code.  The boolean 'trace' column, when True, includes information about the start function execution in the output trace. 
+Choices a modeler has when starting an execution thread include specification of the characteristics of the message that is carried through the thread.  Those specifications include the initial message type, the size (in bytes) of the data frame that carries the message, and the size (in bytes) of the data packet being processed.  These selections are found in the columns labeled 'msg type', 'pcktlen', and 'msglen', respectively. 	One may also specify a non-zero start time for executing the function, in the 'start time' column.  A blank cell is permitted, and is interpreted as 0.0 .  With an eye towards user extensions of the default start function methods, the start parameters include a string parameter 'data', which can carry whatever information that extension requires, provided it is serialized into string form and can be deserialized by the extension code.  The boolean 'trace' column, when True, includes information about the start function execution in the output trace.   If the user wishes to tag the function as member of one or more user-defined 'groups', they put the names of those groups in the 'groups' column.   We could make that same observation for every one of the function classes to follow, but that would be overly redundant and we'll skip.   We will show the group column in each case as a silent reminder.
 
 Figure 8 illustrates the fields for rows describing start functions, where the precise function is identified by its CmpPtn name and function label, and the other parameters just described are also given.
 
@@ -206,8 +219,6 @@ Figure 9 below gives the rows for the running model's two measure functions, bot
 ![cp-measure-sheet](./images/cp-measure-sheet.png)
 
 ​				Figure 9:  measure function configurations in xlsxPCES running example
-
-
 
 ##### transfer
 
@@ -246,8 +257,6 @@ Figure 12 gives the right half of the processPckt rows.
 ![processPckt-cp-sheet-right](./images/processPckt-cp-sheet-right.png)
 
 ​    Figure 12:  processPckt function parameters for last five columns in the xlsxPCES running example
-
-
 
 The emptiness of the msg2mc columns means that the method code 'default' is used, and so the default response method for processPckt's is used.   The emptiness of the msg2msg columns means that each of the processPckt functions have exactly one output edge, and the characteristics of that edge define the outbound message type (as well as the destination function).  The only non-empty entries are for the HMI accelEncrypt and accelqdecrypt functions in the 'acclname' column.   These name the accelerator used to perform the functions.   The names found in these cells have to also appear in the topo sheet, in the 'accel name' column for endpoints.  As the topo sheet is parsed by xlsxPCES before the cp sheet is, that information is available and is used as part of the validation of the cp sheet information.
 
@@ -290,6 +299,10 @@ The 'cmpptn', and 'label' columns identify the function being configured.  The n
 The emptiness of the 'timingcode' dictionary and the presence of a new list 'directprefix' raises the question of how the Crypto CmpPtn function 'cryptoProcess' is to determine how to look up the service time from the function execution time table.  The answer (again explained in more detail in the document "Overview of PCES Models"), is that on receiving a message, the default srvRsp response method looks to see whether the message type has a 'prefix', meaning an initial substring that terminates immediately before a '-' character.   If it does, and if that substring matches some entry in the 'directprefix' table, then the entire code carried by the message type is used as the op code for the operation.   If it does not, then the message code is used to index into the 'timingcode' table and look up an op code, just as in the default  processPckt response function.   Of course, with the configuration above, every received message type better have a prefix that matches 'encrypt' or 'decrypt', otherwise a runtime error is generated.
 
 The rationale for this method to have the cyptographic specifics of crypto operations embedded in the configurations of the functions that request service, rather than turn an 'encrypt' request from a srvReq function into a single encryption oriented operation code that is encoded in the server.  Greater flexibility (and realism) comes with the approach we adopted.
+
+Figure 16 shows the remaining columns for this example's srvRsp function initialization.  The main point is to illustrate the use of a wild card (*) in the message type.   Had we left both msg2mc columns empty the default message code would have been assumed;  however, with the wildcard we could have (but didn't) made a different method code the default.
+
+<img src="/Users/nicol/Dropbox/github-repos/pcesbld/docs/images/srvRsp-cp-sheet-right.png" alt="srvRsp-cp-sheet-right" style="zoom:50%;" />
 
 #### mapping sheet
 
@@ -352,3 +365,6 @@ and also in the 'netParams' sheet
 In the 'experiments' sheet the rows following the definition of symbols and sheets where they may appear each describe a simulation run, giving the values to assign to each of the symbols for that run.   So in this example we define four experiments,  exploring all options possible from varying the crypto parameters from the set {AES-256-CBC, AES-128-CBC} and all interface bandwidth parameters from {10, 1000} Mbs.
 
 When *pdesbld/xlsxPCES/convert-xlsx.py* is run it builds and tests the parameter settings for each experiment, for the purposes of running the validation checks on that experiment's particular settings.   After this phase the csv files with the symbols are transformed into **pces** input files that include the symbols.   When then the set of experiments is run, for each experiment the yaml files with symbols are converted into yaml files where the symbols have been replaced with that experiment's parameter settings, and the outputs that result from that simulation run are gathered and placed in a single file that reports each individual experiment's results
+
+#### Execution of xlsxPCES Tool
+

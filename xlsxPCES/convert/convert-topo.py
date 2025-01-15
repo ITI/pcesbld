@@ -762,6 +762,19 @@ def validateNames():
 
 def sharedNetwork(dev1, dev2):
     shared = []
+    errs = 0
+    msgs = []
+    if dev1 not in devNames:
+        errs += 1
+        msgs.append('dev name {} not recognized in topology'.format(dev1))
+
+    if dev2 not in devNames:
+        errs += 1
+        msgs.append('dev name {} not recognized in topology'.format(dev2))
+
+    if errs > 0:
+        return False, '\n'.join(msgs) 
+
     dev1Inst = devNames[dev1]
     dev2Inst = devNames[dev2]
     
@@ -940,7 +953,7 @@ def main():
         for raw in csvrdr:
             row = []
             for v in raw:
-                row.append(v.strip())
+                row.append(''.join(v.split()))
 
             if row[0].find('#') > -1:
                 continue

@@ -1056,7 +1056,7 @@ def main():
         for raw in csvrdr:
             row = []
             for v in raw:
-                row.append(v.strip())
+                row.append(''.join(v.split()))
 
             if row[0].find('#') > -1:
                 continue

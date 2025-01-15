@@ -270,7 +270,7 @@ def main():
         for raw in csvrdr:
             row = []
             for v in raw:
-                row.append(v.strip())
+                row.append(''.join(v.split()))
 
             if comment(row[0]):
                 continue

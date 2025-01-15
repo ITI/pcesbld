@@ -1,8 +1,0 @@
--validate
--csvDir ./csvDir
--yamlDir ./yamlDir
--descDir ./descDir
--name exampleName
--csvIn netParams-sheet.csv
--exp exp.yaml
--attrbDescIn attrb.json

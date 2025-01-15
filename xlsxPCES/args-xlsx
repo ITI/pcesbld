@@ -1,9 +1,9 @@
 -working ./working
 -name exampleName
--xlsx ./examples/embedded-model-exp.xlsx
+-xlsx ../../pcesapps/embedded/xlsx/embedded-model.xlsx
 -convertDir ./convert
 -csvDir ./csvDir
+-yamlDir ../../pcesapps/embedded/templates
 -templateDir ./templateDir
--yamlDir ./yamlDir
 -descDir ./descDir
 -build

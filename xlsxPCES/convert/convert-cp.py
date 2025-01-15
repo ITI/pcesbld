@@ -38,8 +38,7 @@ connectionList = []
 cmpptnDesc = {}
 
 pcesFuncClasses = ('srvReq', 'srvRsp', 'measure', 'start', 'finish', 'bckgrndLd', 
-                        'processPckt', 'transfer', 'open')
-
+                        'processPckt', 'transfer')
 
 TimingCodeFuncs = []
 
@@ -71,6 +70,7 @@ class FuncInst:
         for edge in self.inEdges:
             if edge.msgType == msgType or msgType == "default":
                 return True, ""
+        pdb.set_trace()
         return False, 'expected msg with type "{}" on cp "{}" function "{}" inedge'.format(msgType, self.cmpPtnName, self.funcName)
 
     def validate(self):
@@ -219,16 +219,16 @@ class Connection():
         # add the in and out edges to the functions
         msgs = []
         
-        srccp_present = (self.srcCP in funcInstByName)
+        srccp_present = (self.srcCP=="*") or (self.srcCP in funcInstByName)
         if not srccp_present:
             msg = 'Connection srcCP "{}" is not defined'.format(self.srcCP)
             msgs.append(msg)
         else:
-            labelpresent =  (self.srcLabel in funcInstByName[self.srcCP])
+            labelpresent =  (self.srcLabel=="*") or (self.srcLabel in funcInstByName[self.srcCP])
             if not labelpresent:
                 msg = 'Connection srcCP "{}" srcLabel "{}" is not defined'.format(self.srcCP, self.srcLabel)
                 msgs.append(msg)
-            else:
+            elif self.srcCP != "*":
                 src_cpfi =  funcInstByName[self.srcCP][self.srcLabel]
 
         dstcp_present = (self.dstCP in funcInstByName)
@@ -249,31 +249,34 @@ class Connection():
             exit(1)
  
         # CP and lables are vetted, src_cpfi and dst_cpfi are set.
-  
-        src_cpfi.addOutEdge(self.dstCP, self.dstLabel, self.msgType)
+
+        if self.srcCP != "*": 
+            src_cpfi.addOutEdge(self.dstCP, self.dstLabel, self.msgType)
         dst_cpfi.addInEdge(self.srcCP, self.srcLabel, self.msgType)
 
-        if srcCP not in messages:
-            messages[srcCP] = {}
-        messages[srcCP][self.msgType] = True
+        if srcCP != "*":
+            if srcCP not in messages:
+                messages[srcCP] = {}
+            messages[srcCP][self.msgType] = True
 
 
     def validate(self):
         if not validateFlag:
             return True, ""
 
-        if self.srcCP not in cmpPtnInstDict:
+        if self.srcCP != "*" and self.srcCP not in cmpPtnInstDict:
             return False, 'expected definition of comp pattern "{}"'.format(self.srcCP)
 
         if self.dstCP not in cmpPtnInstDict:
             return False, 'expected definition of comp pattern "{}"'.format(self.dstCP)
 
         msgs = [] 
-        cpi = cmpPtnInstDict[self.srcCP]  
+        if self.srcCP != "*" and self.srcLabel != "*":
+            cpi = cmpPtnInstDict[self.srcCP]  
 
-        present, msg = cpi.funcExists(self.srcLabel)
-        if not present:
-            msgs.append(msg)
+            present, msg = cpi.funcExists(self.srcLabel)
+            if not present:
+                msgs.append(msg)
 
         cpi = cmpPtnInstDict[self.dstCP]  
         present, msg = cpi.funcExists(self.dstLabel)
@@ -304,9 +307,17 @@ class SrvReq:
             self.init['rspOp'] = row[10]
             self.init['msg2mc'] = {} 
             self.init['msg2msg'] = {} 
+            self.init['groups'] = []
+
         except:
             print_err('error parsing SrvReq line in converting booleans')
             exit(1)
+
+    def addGroup(self, groupName):
+        if 'groups' not in self.init:
+            self.init['groups'] = []
+        if groupName not in self.init['groups']:
+            self.init['groups'].append(groupName)
 
     def validate(self):
         if not validateFlag:
@@ -401,9 +412,9 @@ class SrvRsp:
     def __init__(self, row):
         self.cmpptn = row[1]
         self.label = row[2]
-        
+ 
         try:
-            self.init = {'timingcode': {}, 'directprefix':[], 'trace': cnvrtBool(row[6]), 'msg2mc':{} }
+            self.init = {'timingcode': {}, 'directprefix':[], 'trace': cnvrtBool(row[6]), 'msg2mc':{}, 'groups':[] }
         except:
             print_err('error parsing SrvRsp line, problem converting boolean')
             exit(1)
@@ -413,6 +424,11 @@ class SrvRsp:
 
     def addDirectPrefix(self, prefix):
         self.init['directprefix'].append(prefix)
+
+    def addGroup(self, groupName):
+        if groupName not in self.init:
+            self.init['groups'].append(groupName)
+
 
     def validate(self):
 
@@ -477,10 +493,17 @@ class Measure:
         self.cmpptn = row[1]
         self.label = row[2]
         try:
-            self.init = {'msrname': row[3], 'msrop': row[4], 'trace': cnvrtBool(row[5]), 'msg2mc': {}}
+            self.init = {'msrname': row[3], 'msrop': row[4], 'trace': cnvrtBool(row[5]), 'msg2mc': {}, 'groups':[]}
         except:
             print_err('error parsing Measure function line, conversion to Boolean failed')
             exit(1)
+
+    def addGroup(self, groupName):
+        if 'groups' not in self.init:
+            self.init['groups'] = []
+        if groupName not in self.init['groups']:
+            self.init['groups'].append(groupName)
+
 
     def validate(self):
         if not validateFlag:
@@ -510,11 +533,18 @@ class Start:
         try: 
             self.init = {'pcktlen': row[3], 
                          'msglen': row[4], 'msgtype': row[5],
-                         'starttime': row[6], 'data': str(row[7]), 
+                         'starttime': row[6], 'data': str(row[7]), 'groups':[],
                           'trace': cnvrtBool(row[8])} 
         except:
             print_err('error reading Start entry, input line conversion issue')
             exit(1)
+
+    def addGroup(self, groupName):
+        if 'groups' not in self.init:
+            self.init['groups'] = []
+        if groupName not in self.init['groups']:
+            self.init['groups'].append(groupName)
+
 
     def validate(self):
 
@@ -538,17 +568,19 @@ class Start:
                 msgs.append(msg)
 
         # check lengths of pckt and msg
-        if not (0 <= int(self.init['pcktlen']) < 1501) or \
+        if validateFlag and (not (0 <= int(self.init['pcktlen']) < 1501) or \
                 not (0 <= int(self.init['msglen']) < 1501) or \
-                not (int(self.init['pcktlen']) <= int(self.init['msglen'])) :
+                not (int(self.init['pcktlen']) <= int(self.init['msglen']))) :
             msg = 'initial pckt or msg length size problem'
             msgs.append(msg)
 
-        try:
-            starttime = float(self.init['starttime'])
-        except:
-            msg = 'start function gives non floating point start time {}'.format(self.init['starttime'])
-            msgs.append(msg)
+
+        if validateFlag:
+            try:
+                starttime = float(self.init['starttime'])
+            except:
+                msg = 'start function gives non floating point start time {}'.format(self.init['starttime'])
+                msgs.append(msg)
 
 
         if len(msgs) > 0:
@@ -562,10 +594,16 @@ class Finish:
         self.label = row[2]
         
         try:
-            self.init = {'trace': cnvrtBool(row[3]), 'msg2mc': {}} 
+            self.init = {'trace': cnvrtBool(row[3]), 'msg2mc': {}, 'data': row[6], 'groups':[]} 
         except:
             print_err('error parsing Finish line converting boolean')
             exit(1)
+
+    def addGroup(self, groupName):
+        if 'groups' not in self.init:
+            self.init['groups'] = []
+        if groupName not in self.init['groups']:
+            self.init['groups'].append(groupName)
 
     def validate(self):
         if not validateFlag:
@@ -590,10 +628,16 @@ class BckgrndLd:
         self.label = row[2]
         try:
             self.init = {'bckgrndfunc': row[3], 'bckgrndrate': row[4], 
-                         'bckgrndsrv': row[5], 'trace': cnvrtBool(row[6]), 'msg2mc': {}} 
+                         'bckgrndsrv': row[5], 'trace': cnvrtBool(row[6]), 'msg2mc': {}, 'groups':[]} 
         except:
             print_err("error parsing BckgrndLd line converting boolean")
             exit(1)
+
+    def addGroup(self, groupName):
+        if 'groups' not in self.init:
+            self.init['groups'] = []
+        if groupName not in self.init['groups']:
+            self.init['groups'].append(groupName)
 
     def validate(self):
         if not validateFlag:
@@ -622,10 +666,17 @@ class ProcessPckt:
         self.label = row[2]
         try:
             self.init = {'timingcode': {}, 
-                         'accelname': row[8], 'trace': cnvrtBool(row[5]), 'msg2mc': {}, 'msg2msg': {}}
+                         'accelname': row[8], 'trace': cnvrtBool(row[5]), 'msg2mc': {}, 'msg2msg': {}, 'group':[]}
         except:
             print_err("error parsing ProcessPckt line converting boolean")
             exit(1)
+
+    def addGroup(self, groupName):
+        if 'groups' not in self.init:
+            self.init['groups'] = []
+        if groupName not in self.init['groups']:
+            self.init['groups'].append(groupName)
+        
 
     def validate(self):
         # remember this function if it has an interesting timing code dictionary
@@ -691,13 +742,23 @@ class Transfer:
         try:
             self.init = {'carried': cnvrtBool(row[3]), 
                          'xcp': row[4], 'xlabel': row[5], 'xmsgtype': row[6],
-                        'trace': cnvrtBool(row[7]), 'msg2mc': {} }
+                        'trace': cnvrtBool(row[7]), 'msg2mc': {}, 'groups':[] }
         except:
             print_err("error parsing Transfer line converting booleans")
             exit(1)
 
+    def addGroup(self, groupName):
+        if 'groups' not in self.init:
+            self.init['groups'] = []
+        if groupName not in self.init['groups']:
+            self.init['groups'].append(groupName)
+        
+
     def validate(self):
         if not validateFlag:
+            return True, ""
+
+        if self.init['carried'] == "1":
             return True, ""
 
         if self.cmpptn not in cmpPtnInstDict:
@@ -724,68 +785,6 @@ class Transfer:
 
     def addMsg2MC(self, msgType, mc):
         self.init['msg2mc'][msgType] = mc
-
-class Open:
-    def __init__(self, row):
-        self.cmpptn = row[1]
-        self.label = row[2]
-        self.init = {}
-        self.init['data'] = str(row[5])
-        self.init['msg2mc'] = {}
-        try:
-            self.init['trace'] = cnvrtBool(row[6])
-        except:
-            print_err("error parsing Open line converting Boolean")
-            exit(1)
-        self.init['timingcode'] = {}
-
-    def validate(self):
-        # remember this function if it has an interesting timing code dictionary
-        if len(self.init['timingcode']) > 0:
-            TimingCodeFuncs.append(self)
-
-        if not validateFlag:
-            return True, ""
-
-        if self.cmpptn not in cmpPtnInstDict:
-            msg = 'cp name "{}" in Open init not recognized'.format(self.cmpptn)
-            return False, msg 
-
-        ok, msg = validateFuncInCP(self.cmpptn, self.label,'open ("{}" "{}") init validation'.format(self.cmpptn, self.label))
-        if not ok:
-            return False, msg
-
-        # the key of timing code is inbound message type
-        for mc, fc in self.init['timingcode'].items():
-            # check if timing code key is the msgType on an input edge
-            # to the function being initialized.  Not necessary if
-            # the function is a server (type srvRsp) and the timing
-            # code is in the CP's services table
-            cpi = cmpPtnInstByName[self.cmpptn]
-            cpfi = cpi.getFuncInst(self.label)
-
-            # can we skip the check?
-            if not (cpfi.className == 'srvRsp' and mc in cpi.services):
-                # no
-                ok, msg = cpfi.msgOnInEdge(mc)
-                if not ok:
-                    msgs.append(msg)
-
-            # the function code part of a timing code has to be part of the execution table
-            if fc not in allOps:
-                msg = 'expected function operation code "{}" to be found in list from function/device timing table'.format(fc)
-                msgs.append(msg)
-
-        return True, ""
-
-    def addTimingCode(self, mc, tc):
-        self.init['timingcode'][mc] = tc
-
-    def addMsg2MC(self, msgType, mc):
-        self.init['msg2mc'][msgType] = mc
-
-    def repTC(self):
-        return self.init
 
 def validateCmpPtns():
     if not validateFlag:
@@ -969,6 +968,11 @@ def directoryAccessible(path):
     else:
         return True
 
+def cleanRow(row):
+    rtn = []
+    for r in row:
+        rtn.append(''.join(r.split()))
+    return rtn
 
 def main():
     global mcodes, validateFlag, initClassDict
@@ -1022,7 +1026,7 @@ def main():
     yamlDir = args.yamlDir
     descDir = args.descDir
 
-    if args.validate is None:
+    if not args.validate:
         validateFlag = False
     else:
         validateFlag = True
@@ -1088,20 +1092,30 @@ def main():
 
     Msg2MCIdx = {}
     Msg2MCIdx['srvReq'] = 5 
-    Msg2MCIdx['srvRsp'] = 6
+    Msg2MCIdx['srvRsp'] = 7
     Msg2MCIdx['measure'] = 6
     Msg2MCIdx['finish'] = 4
     Msg2MCIdx['bckgrndLd'] = 7
     Msg2MCIdx['processPckt'] = 7
     Msg2MCIdx['transfer'] = 8
-    Msg2MCIdx['open'] = 7
 
     Msg2MsgIdx = {}
     Msg2MsgIdx['srvReq'] = 11
     Msg2MsgIdx['processPckt'] = 9
-    
+   
     srvRspDirectIdx = 5
     srvRspTCIdx = 3
+
+    GroupsIdx = {}
+    GroupsIdx['srvReq'] = 13
+    GroupsIdx['srvRsp'] = 9
+    GroupsIdx['measure'] = 8
+    GroupsIdx['start'] = 9
+    GroupsIdx['finish'] = 7
+    GroupsIdx['bckgrndld'] = 9
+    GroupsIdx['processPckt'] = 11
+    GroupsIdx['transfer'] = 10
+
 
     #with open(mc_input_file,'r') as rf:
     #    mcodes = json.load(rf)
@@ -1131,6 +1145,8 @@ def main():
                     pieces = row[0].split()
                     className = pieces[1] 
                 continue
+
+            row = cleanRow(row)
 
             if row[0].find('#') > -1:
                 continue
@@ -1253,6 +1269,7 @@ def main():
                         if len(row[1]) > 0:
                             # first time creates the class
                             initClassDict[cmpPtnName][funcLabel] = SrvReq(row)
+                            
                 elif className == 'srvRsp': 
                         if cmpPtnName not in initClassDict:
                            initClassDict[cmpPtnName] = {}
@@ -1284,6 +1301,9 @@ def main():
                 elif className == 'transfer': 
                         if cmpPtnName not in initClassDict:
                            initClassDict[cmpPtnName] = {}
+
+                        if len(row[1]) > 0:
+                            initClassDict[cmpPtnName][funcLabel] = Transfer(row)
                     
                 elif className == 'measure': 
                         if cmpPtnName not in initClassDict:
@@ -1310,7 +1330,12 @@ def main():
                     ridx = Msg2MsgIdx[className]
                     if len(row[ridx]) > 0:
                         initClassDict[cmpPtnName][funcLabel].addMsg2Msg(row[ridx], row[ridx+1])
-               
+
+                if className in GroupsIdx:
+                    ridx = GroupsIdx[className]
+                    if len(row[ridx]) > 0:
+                        initClassDict[cmpPtnName][funcLabel].addGroup(row[ridx])
+                          
                 continue
 
     valid, msg = validateConnections()
