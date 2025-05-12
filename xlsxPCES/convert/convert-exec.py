@@ -15,22 +15,25 @@ cryptoAEModes = ('CCM', 'GCM', 'CWC', 'EAX', 'IAPM', 'OCB')
 validateFlag = False
 
 operationIdx = 1
-processorIdx = 0
+modelIdx = 0
 pcktLenIdx = 2
 execTimeIdx = 3
 
-devModelIdx = 0
-devOpIdx = 1
-devConstIdx = 2
-devPerByteIdx = 3
+bndwdthIdx = 4
 
 execTimeList = []
 devOpTimeList = []
 
+def varFloatScale(v,s):
+    v = v.replace(' ','')
+    here = v.find(')')
+    return v[:here]+s+v[here:]  
+
+
 class ExecTimeEntry:
     def __init__(self, ptype, row):
         self.ptype = ptype                      # cpu or accelerator
-        self.processor = row[processorIdx]
+        self.model = row[modelIdx]
         self.op = row[operationIdx]
         self.pcktLen = row[pcktLenIdx]
         self.execTime = row[execTimeIdx]
@@ -44,11 +47,11 @@ class ExecTimeEntry:
             msg = 'execTime table packet length {} required to be positive integer'.format(self.pcktLen)
             msgs.append(msg)
 
-        if len(self.processor) == 0 and len(self.op) > 0:
+        if len(self.model) == 0 and len(self.op) > 0:
             msg = 'expected operation {} to be assigned to non-empty processor name'.format(self.op)
             msgs.append(msg)
-        elif len(self.processor) == 0 and len(self.op) == 0:
-            msg = 'expected operation and processor on timing line with pcktlen {} and execution time {}'.format(self.pcktlen, self.execTime)
+        elif len(self.model) == 0 and len(self.op) == 0:
+            msg = 'expected operation and processor on exec timing line with pcktLen {} and execution time {}'.format(self.pcktLen, self.execTime)
             msgs.append(msg)
 
         try:
@@ -65,44 +68,62 @@ class ExecTimeEntry:
         return True, "" 
 
     def repDict(self):
-        rd = {'identifier': self.op, 'cpumodel': self.processor, 'pcktlen': int(self.pcktLen), 'exectime': float(self.execTime)/1e6, 'param':""}
+        rd = {'identifier': self.op, 'cpumodel': self.model, 'pcktlen': self.pcktLen, 'exectime': self.execTime, 'param':""}
+        if self.pcktLen.find('($') == -1:
+            rd['pcktlen'] = int(self.pcktLen)
+
+        if self.execTime.find(')') == -1:
+            rd['exectime'] = float(self.execTime)/1e6
+        else:
+            rd['exectime'] = varFloatScale(self.execTime,'/1e6')       
+        
         return rd
 
 devOps = ('route','switch')
 
 class DevOpTimeEntry:
     def __init__(self, devtype, row):
-        self.devtype = devtype
-        self.model = row[devModelIdx]
-        self.op    = row[devOpIdx]
-        self.timeConst = row[devConstIdx]
-        self.timePerByte = row[devPerByteIdx]
+        self.devtype = devtype                      # model 
+        self.model = row[modelIdx]
+        self.op = row[operationIdx]
+        self.pcktLen = row[pcktLenIdx]
+        self.execTime = row[execTimeIdx]
+        self.bndwdth  = row[bndwdthIdx]
 
     def validate(self):
         if not validateFlag:
             return True, ""
 
         msgs = []
-        try:
-            tstflt = float(self.timeConst)
-            if tstflt < 0.0:
-                msg = 'Device operation processing constant {} required to be positive real'.format(self.timeConst)
-                msgs.append(msg)
-        except:
-            msg = 'Device operation processing constant {} required to be positive real'.format(self.timeConst)
+        if not self.pcktLen.isdigit() or int(self.pcktLen) < 0:
+            msg = 'devOpTime table packet length {} required to be positive integer'.format(self.pcktLen)
+            msgs.append(msg)
+
+        if len(self.model) == 0 and len(self.op) > 0:
+            msg = 'expected operation {} to be assigned to non-empty device name'.format(self.op)
+            msgs.append(msg)
+        elif len(self.model) == 0 and len(self.op) == 0:
+            msg = 'expected operation and processor on device op time line with pcktLen {} and execution time {}'.format(self.pcktLen, self.execTime)
             msgs.append(msg)
 
         try:
-            tstflt = float(self.timePerByte)
+            tstflt = float(self.execTime)
             if tstflt < 0.0:
-                msg = 'Device operation per byte processing {} required to be positive real'.format(self.timePerByte)
+                msg = 'devOpTime processing {} required to be positive real'.format(self.execTime)
                 msgs.append(msg)
         except:
-            msg = 'Device operation per byte processing {} required to be positive real'.format(self.timePerByte)
+            msg = 'devOpTime processing {} required to be positive real'.format(self.execTime)
             msgs.append(msg)
 
-        if self.op not in devOps:
-            msg = 'device operation code {} not recognized'.format(self.op)
+        try:
+            tstflt = float(self.bndwdth)
+            if tstflt < 0.0:
+                pdb.set_trace()
+                msg = 'devOpTime bandwidth {} required to be positive real'.format(self.bndwdth)
+                msgs.append(msg)
+        except:
+            pdb.set_trace()
+            msg = 'devOpTime bandwidth {} required to be positive real'.format(self.bndwdth)
             msgs.append(msg)
 
         if len(msgs) > 0:
@@ -110,20 +131,18 @@ class DevOpTimeEntry:
         return True, "" 
 
     def repDict(self):
-        rd = {'devop': self.op, 'model': self.model, 'exectime': float(self.timeConst)/1e6, 'perbyte': float(self.timePerByte)/1e6}
+        rd = {'identifier': self.op, 'model': self.model, 'pcktlen': int(self.pcktLen), 
+            'bndwdth': self.bndwdth, 'param':""}
+
+        if self.execTime.find(')') == -1:
+            rd['exectime'] = float(self.execTime)/1e6
+        else:
+            rd['exectime'] = varFloatScale(self.execTime, '/1e6')
+
+        if self.bndwdth.find(')') == -1:
+            rd['bndwdth'] = float(self.bndwdth)
+
         return rd
-
-def isCrypto(code):
-    if code.find('-') == -1:
-        return False
-    fields = code.split('-')
-    haveKeyLen = (fields[3].isdigit() and int(fields[3]) > 0)
-    if fields[0] in cryptoOps and haveKeyLen:
-        if not fields[1] in cryptoAlgs or not fields[2] in cryptoModes:
-            return False
-        return True
-
-    return False
 
 def comment(row):
     for cell in row:
@@ -139,11 +158,22 @@ def empty(row):
     return True
 
 def unnamed(row):
-    for cell in row:
-        if cell.find('Unnamed') > -1  or cell.find('UnNamed') > -1 or cell.find('unnamed') > -1 :
-            return True
-
+    cell = row[0]
+    if (cell.find('Unnamed') > -1  or cell.find('UnNamed') > -1 or cell.find('unnamed') > -1) :
+        return True
     return False
+
+def cleanRow(row):
+    rtn = []
+    for r in row:
+        if r.startswith('#!'):
+            r = ''                     
+        elif len(rtn) > 0 and r.startswith('#'):
+            break
+        rtn.append(r)
+
+    return rtn
+
 
 def print_err(*a):
     print(*a, file=sys.stderr)
@@ -161,8 +191,8 @@ def validateUniqueness():
 
     seen = {}
     for entry in execTimeList:
-       if (entry.processor, entry.op) in seen:
-            msg = 'expect exec time table entry ({},{}) to be unique'.format(entry.processor, entry.op)
+       if (entry.model, entry.op) in seen:
+            msg = 'expect exec time table entry ({},{}) to be unique'.format(entry.model, entry.op)
             msgs.append(msg)
 
     if len(msgs) > 0:
@@ -229,7 +259,7 @@ def main():
     yamlDir = args.yamlDir
     descDir = args.descDir
 
-    if args.validate is None:
+    if args.validate is False:
         validateFlag = False
     else:
         validateFlag = True
@@ -270,7 +300,8 @@ def main():
         for raw in csvrdr:
             row = []
             for v in raw:
-                row.append(''.join(v.split()))
+                #row.append(''.join(v.split()))
+                row.append(v.strip())
 
             if comment(row[0]):
                 continue
@@ -281,8 +312,11 @@ def main():
             if unnamed(row):
                 continue
 
+            row = cleanRow(row)
+
             if row[0].find("CPU") > -1 and row[0].find('Entries') > 0:
                 cpuEntries = True
+                maxCols = 4
                 accelEntries = False
                 routerEntries = False
                 switchEntries = False
@@ -291,6 +325,7 @@ def main():
             if row[0].find("Accel") > -1 and row[0].find('Entries') > 0:
                 cpuEntries = False
                 accelEntries = True
+                maxCols = 4
                 routerEntries = False
                 switchEntries = False
                 continue
@@ -299,6 +334,7 @@ def main():
                 cpuEntries = False
                 accelEntries = False
                 routerEntries = True
+                maxCols = 5
                 switchEntries = False
                 continue
                
@@ -307,7 +343,10 @@ def main():
                 accelEntries = False
                 routerEntries = False
                 switchEntries = True
+                maxCols = 5
                 continue
+
+            row = row[:maxCols]
 
             if cpuEntries: 
                 execTimeList.append(ExecTimeEntry('CPU', row))
@@ -352,7 +391,7 @@ def main():
     modelDict = {'CPU': [], 'Accelerator': [], 'Switch': [], 'Router': []}
 
     for entry in execTimeList:
-        cpuOpsKey = entry.ptype+"%"+entry.processor
+        cpuOpsKey = entry.ptype+"%"+entry.model
         if cpuOpsKey not in cpuOps:
             cpuOps[cpuOpsKey] = []
 
@@ -365,8 +404,8 @@ def main():
             cpuOps[cpuOpsKey].append( entry.op )
 
         try:
-            if entry.processor not in modelDict[entry.ptype]:
-                modelDict[entry.ptype].append( entry.processor )
+            if entry.model not in modelDict[entry.ptype]:
+                modelDict[entry.ptype].append( entry.model)
         except:
             print("oops")
             exit(1)
@@ -399,7 +438,6 @@ def main():
         
     with open(dev_model_output_file, 'w') as wf:
         json.dump(modelDict, wf)
-
 
 
 if __name__ == "__main__":

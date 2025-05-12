@@ -17,12 +17,15 @@ variableName = []
 
 sheetNames = ('topo', 'cp', 'execTime', 'mapping', 'netParams')
 
-def convBoolean(v):
+def cnvrtBool(v):
+    if isinstance(v,int) and (v==0 or v==1):
+        return v
+
     if isinstance(v,str):
         if v in ('T','True','TRUE', 'yes', 'YES', 'Y', 'y'):
-            return "1"
+            return 1
         if v in ('F','False', 'FALSE', 'no', 'NO', 'N', 'n'):
-            return "0"
+            return 0
 
     return v 
 
@@ -31,7 +34,7 @@ class ExperimentEntry:
         self.name = row[expNameIdx]
         self.variableDict = {}
         for idx in range(1,len(variableName)+1):
-            self.variableDict[ variableName[idx-1] ] = convBoolean("".join(row[idx].split()))
+            self.variableDict[ variableName[idx-1] ] = cnvrtBool("".join(row[idx].split()))
 
     def validate(self):
         msgs = []
@@ -101,10 +104,9 @@ def empty(row):
     return True
 
 def unnamed(row):
-    for cell in row:
-        if cell.find('Unnamed') > -1  or cell.find('UnNamed') > -1 or cell.find('unnamed') > -1 :
-            return True
-
+    cell = row[0]
+    if (cell.find('Unnamed') > -1  or cell.find('UnNamed') > -1 or cell.find('unnamed') > -1) :
+        return True
     return False
 
 def print_err(*a):
@@ -203,13 +205,17 @@ def main():
         for raw in csvrdr:
             row = []
             for v in raw:
-                row.append(''.join(v.split()))
+                row.append(v.strip())
 
             if empty(row):
                 continue
 
             if unnamed(row):
                 continue
+
+            row = cleanRow(row)
+            if row[0].startswith('###') and row[0].find('END') > -1: 
+                break
 
             if row[0] == 'Experiments':
                 continue 
@@ -222,11 +228,17 @@ def main():
                         variableName.append("".join(row[idx].split()))
                     else:
                         break
+
+                maxCols = len(variableName)+1
+
                 continue
 
             if comment(row[0]):
                 continue
   
+            if maxCols > 0:
+                row = row[:maxCols]            
+
             experiments.append(ExperimentEntry(row))
             continue
 
@@ -279,6 +291,17 @@ def main():
  
     with open(experiment_output_file, 'w') as wf:
         yaml.dump(expList, wf, default_flow_style=False)
+
+def cleanRow(row):
+    rtn = []
+    for r in row:
+        if r.startswith('#!'):
+            r = ''                     
+        elif len(rtn) > 0 and r.startswith('#'):
+            break
+        rtn.append(r)
+
+    return rtn
 
 if __name__ == "__main__":
 	main()

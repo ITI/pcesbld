@@ -15,6 +15,7 @@ endptList   = []
 intrfcList  = []
 wiredConnList = []
 wirelessConnList = []
+flowList = []
 
 switchNames = {}
 routerNames = {}
@@ -39,7 +40,6 @@ devModelIdx = 1
 devGroupIdx = 2
 devPeerIdx = 3
 devFacesIdx = 4
-devSimpleIdx  = 5
 
 endptNameIdx = 0
 endptModelIdx = 1
@@ -49,6 +49,15 @@ endptAccelNameIdx = 4
 endptAccelModelIdx = 5
 endptPeerIdx = 6
 endptNetworkIdx = 7
+
+flowNameIdx = 0
+flowSrcIdx = 1
+flowDstIdx = 2
+flowModeIdx = 3
+flowReqRateIdx = 4
+flowFrameSizeIdx = 5
+flowGroupIdx = 6
+
 
 networks = False
 switches = False
@@ -131,18 +140,41 @@ class Switch:
     def __init__(self, row): 
         self.name = row[devNameIdx]
         self.model = row[devModelIdx]
-        if len(row[devSimpleIdx]) == 0:
-            self.simple = 1 
-        else:
-            self.simple = 0
         self.groups = []
         self.peers = []
         self.faces = []
         self.intrfcs = []
         self.netRef = {}
+        self.wirelessIntrfc = {}
 
         switchNames[self.name] = self 
         devNames[self.name] = self
+
+        if len(self.faces) > 0:
+            for netName in self.faces:
+                if netName in networkNames:
+                    self.createWirelessIntrfc(netName)
+
+    def createWirelessIntrfc(self, netName):
+
+        if netName in self.wirelessIntrfc:
+            return self.wirelessIntrfc[netName]
+
+        intrfc = {}
+        intrfc['name'] = 'intrfc@'+self.name+'->'+netName
+        intrfc['groups'] = []
+        intrfc['device'] = self.name
+        intrfc['carry'] = []
+        intrfc['wireless'] = []
+        intrfc['cable'] = ""
+        intrfc['faces'] = netName 
+        intrfc['mediatype'] = 'wireless'
+        intrfc['devtype'] = 'Switch'
+
+        self.addIntrfc(intrfc)
+        intrfcList.append(intrfc)  
+        self.wirelessIntrfc[netName] = intrfc
+        return intrfc
 
     def addGroup(self, groupName):
         if groupName not in self.groups:
@@ -156,18 +188,18 @@ class Switch:
         if netName not in self.faces:
             self.faces.append(netName)
 
+        net = networkNames[netName]
+
+        # when we add a wireless network we create a wireless interface for that network
+        if net.mediatype == 'wireless':
+            self.wirelessIntrfc[netName] = self.createWirelessIntrfc(netName)
+
+
     def addIntrfc(self, intrfcDict):
         self.intrfcs.append(intrfcDict)
 
     def validate(self):
 
-        valid, boolmsg = validateBool(self.simple)
-        if not valid:
-            msg = 'switch "{}" simple flag "{}" is not boolean'.format(self.name, self.simple)
-            msgs.append(msg) 
-        else:
-            self.simple = cnvrtBool(self.simple)
-  
         if not validateFlag:
             return True, ""
 
@@ -176,13 +208,6 @@ class Switch:
             msg = 'switch {} lacks model description'.format(self.name)
             msgs.append(msg)
 
-        valid, boolmsg = validateBool(self.simple)
-        if not valid:
-            msg = "switch {} 'simple' flag is not boolean".format(self.name)
-            msgs.append(msg) 
-        else:
-            self.simple = cnvrtBool(self.simple)
-  
         if len(modelDict) > 0 and len(self.model) > 0 and self.model  not in modelDict['Switch']:
             msg = 'switch {} model {} not recognized from timing file'.format(self.name, self.model)
             msgs.append(msg)
@@ -203,7 +228,7 @@ class Switch:
         return True, ""
 
     def repDict(self):
-        rd = {'name': self.name, 'groups': self.groups, 'model': self.model, 'simple': 1, 'interfaces': self.intrfcs}
+        rd = {'name': self.name, 'groups': self.groups, 'model': self.model, 'interfaces': self.intrfcs}
         return rd
 
     def attrbDict(self):
@@ -214,11 +239,6 @@ class Router:
     def __init__(self, row): 
         self.name = row[devNameIdx]
         self.model = row[devModelIdx]
-
-        if len(row[devSimpleIdx]) == 0:
-            self.simple = 0 
-        else:
-            self.simple = 1
 
         self.groups = []
         self.peers = []
@@ -271,8 +291,7 @@ class Router:
         return True, ""
 
     def repDict(self):
-        rd = {'name': self.name, 'groups': self.groups, 'model': self.model, 
-            'simple': 1, 'interfaces': self.intrfcs}
+        rd = {'name': self.name, 'groups': self.groups, 'model': self.model, 'interfaces': self.intrfcs}
         return rd
 
     def attrbDict(self):
@@ -290,7 +309,6 @@ class Endpt:
         self.faces = []
         self.intrfcs = []
         self.netRef = {}
-
         endptNames[self.name] = self
         devNames[self.name] = self
 
@@ -352,12 +370,12 @@ class Endpt:
         return True, ""
 
     def repDict(self):
-        rd = {'name': self.name, 'groups': self.groups, 'model': self.model, 'cores': self.cores, \
+        rd = {'name': self.name, 'groups': self.groups, 'model': self.model, 'cores': int(self.cores), \
                 'accel': self.accel, 'interfaces': self.intrfcs}
         return rd
 
     def repDesc(self):
-        rd = {'name': self.name, 'model': self.model, 'cores': self.cores, 'accel': self.accel}
+        rd = {'name': self.name, 'model': self.model, 'cores': int(self.cores), 'accel': self.accel}
         return rd
 
     def attrbDict(self):
@@ -367,8 +385,9 @@ class Endpt:
 class WirelessConnection:
     def __init__(self, row):
         self.dev = row[0]
-        self.network = row[1]
+        self.network = row[2]
         self.mediatype = "wireless"
+        self.hub = row[1]
 
     def validate(self):
         if not validateFlag:
@@ -376,11 +395,15 @@ class WirelessConnection:
 
         msgs = []
         if not validDev(self.dev):
-            msg = "wireless connection specifices device {} which is not defined".format(self.dev)
+            msg = "wireless connection specifies device {} which is not defined".format(self.dev)
             msgs.append(msg)
 
         if self.network not in networkNames:
             msg = 'wireless connection from {} specifies facing unknown network {}'.format(self.dev, self.network)
+            msgs.append(msg)
+  
+        if self.hub not in switchNames:
+            msg = 'wireless connection from {} specifies unknown hub {}'.format(self.dev, self.hub)
             msgs.append(msg)
    
         if self.mediatype not in ('wired', 'wireless'):
@@ -390,32 +413,142 @@ class WirelessConnection:
         if len(msgs) > 0:
             return False, '\n'.join(msgs)
 
+       # check that has a wireless interface
+        swtch = switchNames[self.hub]
+        net = networkNames[self.network]
+        for swtchName in net.switches:
+            swtch = switchNames[swtchName]
+            found = self.network in swtch.wirelessIntrfc
+            if found:
+                break
+
+        if not found:
+            msg = 'wireless connection from {} declares hub "{}" with has no wireless interface'.format(self.dev, self.hub)  
+            return False, msg
+
         return True, ""
 
-    def createIntrfc(self):
+    def createDevIntrfc(self):
+        dev = getDev(self.dev)
+        devName = dev.name
+
         intrfc = {}
-        intrfc['name'] = 'intrfc@'+self.dev+'->'+self.network
+        intrfc['name'] = 'intrfc@'+devName+'->'+self.network
         intrfc['groups'] = []
-        intrfc['device'] = self.dev
+        intrfc['device'] = devName
         intrfc['carry'] = []
-        intrfc['wireless'] = []
+
+        swtch = switchNames[self.hub]
+        hubIntrfc = swtch.wirelessIntrfc[self.network]
+        hubIntrfc['wireless'].append(intrfc['name'])
+        intrfc['wireless'] = [hubIntrfc['name']]
+
         intrfc['cable'] = ""
         intrfc['faces'] = self.network
+        intrfc['mediatype'] = 'wireless'
 
-        if self.dev1 in switchNames:
+        if self.dev in switchNames:
             intrfc['devtype'] = 'Switch'
-        elif self.dev1 in routerNames:
+        elif self.dev in routerNames:
             intrfc['devtype'] = 'Router'
-        elif self.dev1 in endptNames:
+        elif self.dev in endptNames:
             intrfc['devtype'] = 'Endpt'
 
-        intrfc['mediatype'] = self.mediatype
+        dev.addIntrfc(intrfc) 
+
         intrfcList.append(intrfc)
-        return intrfc
+
+class Flow:
+    def __init__(self, row):
+        self.init = {}
+        self.name = row[flowNameIdx]
+        self.srcdev = row[flowSrcIdx] 
+        self.dstdev = row[flowDstIdx] 
+        self.mode   = row[flowModeIdx]
+        self.framesize = row[flowFrameSizeIdx]
+        self.groups = []
+
+        self.init['name'] = row[flowNameIdx]
+        self.init['srcdev'] = row[flowSrcIdx]
+        self.init['dstdev'] = row[flowDstIdx]
+        self.init['mode'] = row[flowModeIdx]
+        self.init['reqrate'] = row[flowReqRateIdx]
+        self.init['framesize'] = row[flowFrameSizeIdx]
+
+        if len(row[flowGroupIdx]) > 0:
+            self.groups.append(row[flowGroupIdx])
+
+    def addGroup(self, group):
+        self.groups.append(group)
+
+    def validate(self):
+        # check that the source and destinations are known endpoints
+        msgs = []
+        if self.srcdev not in endpointNames:
+            msg = 'flow {} includes source endpoint "{}" with no definition'.format(self.name, self.srvdev)
+            msgs.append(msg)
+
+        if self.dstdev not in endpointNames:
+            msg = 'flow {} includes destination endpoint "{}" with no definition'.format(self.name, self.dstdev)
+            msgs.append(msg)
+
+        if self.init['mode'] not in ('packet', 'elastic-flow', 'inelastic-flow'):
+            msg = 'flow {} mode needs to be in ("packet", "elastic-flow", "inelastic-flow")'.format(self.name)
+            msgs.append(msg)
+ 
+        try:
+            fs = int(self.framesize)
+            if fs < 64:
+                msg = 'flow {} framesize needs to be a postive integer no smaller than 64'.format(fs)
+                msgs.append(msg)
+        except:
+            msg = 'flow {} framesize needs to be a postive integer no smaller than 64'.format(fs)
+            msgs.append(msg)
+
+        # check that requested rate is positive number
+        reqRate = self.init['reqrate'] 
+        try:
+            x = float(reqRate)
+        except ValueError:
+            msg = 'flow {} includes reqRate "{}" which is not non-negative float'.format(self.name, reqRate)
+            msgs.append(msg)
+        
+        if len(msgs) == 0:
+            return True, ""
+        
+        return False, "\n".join(msgs)        
+ 
+    def repDict(self):
+        if self.init['reqrate'].isnumeric(): 
+            self.init['reqrate'] = float(self.init['reqrate'])
+        if self.init['framesize'].isnumeric():
+            self.init['framesize'] = int(self.init['framesize'])
+        self.init['groups'] = self.groups
+        return self.init
+
+    def repDesc(self):
+        rd = {'name': self.name, 'srcdev': self.srcdev, 'dstdev': self.dstdev}
+        return rd
+
+    def attrbDict(self):
+        rad = {'name': self.name, 'srcdev': self.srcdev, 'dstdev': self.dstdev, 
+            'mode': self.mode, 
+            'groups': self.groups}
+        return rad
 
 def IntrfcAttrb(intrfc):
     ia = {'name':intrfc['name'], 'groups': intrfc['groups'], 'devtype': intrfc['devtype'], 'media': intrfc['mediatype'], 'faces': intrfc['faces']}
     return ia
+
+
+def getDev(devName):
+    if devName in switchNames:
+        return switchNames[devName]
+    elif devName in routerNames:
+        return routerNames[devName]
+    elif devName in endptNames:
+        return endptNames[devName]
+    return "" 
 
 class WiredConnection:
     def __init__(self, row):
@@ -423,13 +556,18 @@ class WiredConnection:
         self.dev2 = row[1]
         self.cable = row[2]
 
-    def createIntrfcs(self):
+    def createCabledIntrfcs(self):
+        if not self.cable:
+            return
+
         intrfc1 = {}
         intrfc1['name'] = 'intrfc@'+self.dev1+'-'+self.dev2
         intrfc1['groups'] = []
         intrfc1['device'] = self.dev1
         intrfc1['carry'] = []
         intrfc1['wireless'] = []
+        intrfc1['faces'] = ""
+        intrfc1['mediatype'] = 'wired'
 
         if self.dev1 in switchNames:
             intrfc1['devtype'] = 'Switch'
@@ -451,13 +589,14 @@ class WiredConnection:
             net = networkNames[sharedNets[0]]
             intrfc1['mediatype'] = net.mediatype 
 
-
         intrfc2 = {}
         intrfc2['name'] = 'intrfc@'+self.dev2+'-'+self.dev1
         intrfc2['groups'] = []
         intrfc2['device'] = self.dev2
         intrfc2['carry'] = []
         intrfc2['wireless'] = []
+        intrfc2['mediatype'] = 'wired'
+        intrfc2['faces'] = ""
 
         if self.dev2 in switchNames:
             intrfc2['devtype'] = 'Switch'
@@ -467,8 +606,6 @@ class WiredConnection:
             intrfc2['devtype'] = 'Endpt'
 
         intrfc2['faces'] = intrfc1['faces']
-        if 'mediatype' in intrfc1:
-            intrfc2['mediatype'] = intrfc1['mediatype']
 
         if intrfc1['devtype'] == 'Switch':
                 dev = switchNames[self.dev1]
@@ -482,7 +619,6 @@ class WiredConnection:
                 dev = endptNames[self.dev1]
                 dev.addIntrfc(intrfc1)
 
-        
         if intrfc2['devtype'] == 'Switch':
                 dev = switchNames[self.dev2]
                 dev.addIntrfc(intrfc2)
@@ -495,12 +631,114 @@ class WiredConnection:
                 dev = endptNames[self.dev2]
                 dev.addIntrfc(intrfc2)
 
-        if self.cable == 1 or self.cable == "1" :
-            intrfc1['cable'] = intrfc2['name']
-            intrfc2['cable'] = intrfc1['name']
-
+        intrfc1['cable'] = intrfc2['name']
+        intrfc2['cable'] = intrfc1['name']
         intrfcList.append(intrfc1)
         intrfcList.append(intrfc2)
+
+    def createCarryIntrfcs(self):
+        if self.cable:
+            return
+
+        # create an interface for dev1 if needed
+        intrfc1 = {}
+        intrfc1['name'] = 'intrfc@'+self.dev1+'-'+self.dev2
+        intrfc1['groups'] = []
+        intrfc1['device'] = self.dev1
+        intrfc1['carry'] = []
+        intrfc1['wireless'] = []
+        intrfc1['faces'] = ""
+        newIntrfc1 = True
+
+        if self.dev1 in switchNames:
+            intrfc1['devtype'] = 'Switch'
+        elif self.dev1 in routerNames:
+            intrfc1['devtype'] = 'Router'
+        elif self.dev1 in endptNames:
+            intrfc1['devtype'] = 'Endpt'
+
+        # figure out which network contains both of these devices
+
+        shared, sharedNets = sharedNetwork(self.dev1, self.dev2)
+        intrfc1['faces'] = sharedNets[0]
+        
+        if not shared:
+            msg = 'closed connection ({},{}) endpoints do not share a network'.format(self.dev1, self.dev2)
+            msgs.append(msg)
+        else:
+            intrfc1['name'] = 'intrfc@'+self.dev1+'-'+sharedNets[0]
+            intrfc1['faces'] = sharedNets[0]
+            # media type is the type of the network the interface faces
+            net = networkNames[sharedNets[0]]
+            intrfc1['mediatype'] = net.mediatype 
+    
+        # see if there is another wired interface on dev1 facing the same network
+        dev1 = getDev(self.dev1)
+        dev2 = getDev(self.dev2)
+
+        # if dev1 has a wired interface facing sharedNets change intrfc1
+        for devIntrfc in dev1.intrfcs:
+
+            if devIntrfc['mediatype'] != 'wired':
+                continue
+
+            if 'cable' in devIntrfc and len(devIntrfc['cable']) > 0:
+                continue
+
+            if devIntrfc['faces'] == intrfc1['faces']:
+                intrfc1 = devIntrfc
+                newIntrfc1 = False
+                break
+
+        intrfc2 = {}
+        intrfc2['name'] = 'intrfc@'+self.dev2+'-'+sharedNets[0]
+        intrfc2['groups'] = []
+        intrfc2['device'] = self.dev2
+        intrfc2['carry'] = []
+        intrfc2['wireless'] = []
+
+        intrfc2['faces'] = intrfc1['faces']
+        intrfc2['mediatype'] = intrfc1['mediatype']
+
+        newIntrfc2 = True
+
+        if self.dev2 in switchNames:
+            intrfc2['devtype'] = 'Switch'
+        elif self.dev2 in routerNames:
+            intrfc2['devtype'] = 'Router'
+        elif self.dev2 in endptNames:
+            intrfc2['devtype'] = 'Endpt'
+
+        # if dev2 has a wired interface facing sharedNets change intrfc2
+        for devIntrfc in dev2.intrfcs:
+
+            if devIntrfc['mediatype'] != 'wired':
+                continue
+
+            if 'cable' in devIntrfc and len(devIntrfc['cable']) > 0:
+                continue
+
+            if devIntrfc['faces'] == intrfc2['faces']:
+                intrfc2 = devIntrfc
+                newIntrfc2 = False
+                break
+
+        intrfc1['carry'].append(intrfc2['name']) 
+        #for intrfc in intrfc2['carry']:
+        #    if intrfcName not in intrfc1['carry']:
+        #        intrfc1['carry'].append(intrfcName)
+
+        intrfc2['carry'].append(intrfc1['name']) 
+        #for intrfcName in intrfc1['carry']:
+        #    if intrfcName not in intrfc2['carry']:
+        #        intrfc2['carry'].append(intrfcName)
+
+        if newIntrfc1:
+            dev1.addIntrfc(intrfc1)
+            intrfcList.append(intrfc1)
+        if newIntrfc2:
+            dev2.addIntrfc(intrfc2)
+            intrfcList.append(intrfc2)
 
     def validate(self):
         if not validateFlag:
@@ -508,18 +746,18 @@ class WiredConnection:
 
         msgs = []
         if not validDev(self.dev1):
-            msg = "connection specifices device {} which is not defined".format(self.dev1)
+            msg = "connection specifies device {} which is not defined".format(self.dev1)
             msgs.append(msg)
 
         if not validDev(self.dev2):
-            msg = "connection specifices device {} which is not defined".format(self.dev2)
+            msg = "connection specifies device {} which is not defined".format(self.dev2)
             msgs.append(msg)
 
         # check that the devices are included in the same network
 
         shared, _ = sharedNetwork(self.dev1, self.dev2)
         if not shared:
-            msg = 'connection ({},{}) endpoints do not share a network'.format(self.dev1, self.dev2)
+            msg = "connection ({},{}) endpoints do not share a network".format(self.dev1, self.dev2)
             msgs.append(msg)
 
         valid, boolmsg = validateBool(self.cable)
@@ -541,10 +779,9 @@ def empty(row):
     return True
 
 def unnamed(row):
-    for cell in row:
-        if cell.find('Unnamed') > -1  or cell.find('UnNamed') > -1 or cell.find('unnamed') > -1 :
-            return True
-
+    cell = row[0]
+    if (cell.find('Unnamed') > -1  or cell.find('UnNamed') > -1 or cell.find('unnamed') > -1) :
+        return True
     return False
 
 def print_err(*a) : 
@@ -553,6 +790,9 @@ def print_err(*a) :
 
 # called
 def validateBool(v):
+    if isinstance(v, int) and (v==0 or v==1):
+        return True, ""
+
     if isinstance(v, str) and v.startswith('@'):
         return True, ""
 
@@ -560,7 +800,7 @@ def validateBool(v):
         return True, ""
 
     if isinstance(v, str) and len(v) == 0:
-        return True
+        return True, ""
 
     if v in ('TRUE','True','true','T','t','1', 1):
         return True, ""
@@ -569,6 +809,9 @@ def validateBool(v):
     return False, "error in boolean variable"
 
 def cnvrtBool(v):
+    if isinstance(v, int) and (v==0 or v==1):
+        return v
+
     if isinstance(v, str) and v.startswith('@'):
         return v
 
@@ -583,8 +826,7 @@ def cnvrtBool(v):
     if v in ('FALSE','False','false','F','f','0', 0):
         return 0
 
-    print_err("string {} is not a bool".format(v))
-    return None
+    return v 
 
 def validDev(devName):
     return devName in switchNames or devName in routerNames or devName in endptNames
@@ -807,7 +1049,7 @@ def discoverRefNetworks():
 
         for router in net.routers:
             if router not in routerNames:
-                msg = 'definition of switch {}, listed in network {} list'.format(swtch, net.name)
+                msg = 'definition of router {}, listed in network {} list'.format(swtch, net.name)
                 msgs.append(msg)
             else:
                 routerNames[router].netRef[net.name] = True
@@ -859,7 +1101,7 @@ def wiredoryAccessible(path):
  
  
 def main():
-    global endptList, networkList, switchList, routerList, wiredConnList, validateFlag, modelDict
+    global endptList, networkList, switchList, routerList, wiredConnList, flowList, validateFlag, modelDict
 
     parser = argparse.ArgumentParser()
     parser.add_argument(u'-name', metavar = u'name of system', dest=u'name', required=True)
@@ -946,14 +1188,18 @@ def main():
     routers  = False
     endpoints = False
     connections = False
-    
+    wiredConn = False
+    wirelessConn = False
+    flows = False
+ 
     msgs = []
     with open(csv_input_file, newline='') as rf:
         csvrdr = csv.reader(rf)
         for raw in csvrdr:
             row = []
             for v in raw:
-                row.append(''.join(v.split()))
+                #row.append(''.join(v.split()))
+                row.append(v.strip())
 
             if row[0].find('#') > -1:
                 continue
@@ -964,38 +1210,45 @@ def main():
             if unnamed(row):
                 continue
 
+            row = cleanRow(row)
+
             matchCode = "None"
-            rowTypes = ('Networks', 'Switches', 'Routers', 'Endpoints', 'Wired-Connections', 'Wireless-Connections')
+            rowTypes = ('Networks', 'Switches', 'Routers', 'Endpoints', 'Wired-Connections', 'Wireless-Connections', 'Flows')
             for rowtype in rowTypes:
                 if row[0].find(rowtype) > -1:
                     matchCode = rowtype 
 
-           
             if matchCode == "Networks": 
                     networks = True
+                    maxCols = 7
                     switches = False
                     routers  = False
                     endpoints = False
                     wiredConn = False
                     wirelessConn = False
+                    flows = False
                     continue
 
             elif matchCode == "Switches": 
                     networks = False
                     switches = True
+                    maxCols = 5
                     routers  = False
                     endpoints = False
                     wiredConn = False
                     wirelessConn = False
+                    flows = False
                     continue
 
             elif matchCode == "Routers": 
                     networks = False
                     switches = False
                     routers  = True
+                    maxCols = 5
                     endpoints = False
                     wiredConn = False
                     wirelessConn = False
+                    flows = False
                     continue
 
             elif matchCode == "Endpoints": 
@@ -1003,8 +1256,10 @@ def main():
                     switches = False
                     routers  = False
                     endpoints = True
+                    maxCols = 8
                     wiredConn = False
                     wirelessConn = False
+                    flows = False
                     continue
 
             elif matchCode == "Wired-Connections": 
@@ -1013,7 +1268,9 @@ def main():
                     routers  = False
                     endpoints = False
                     wiredConn = True
+                    maxCols = 3
                     wirelessConn = False
+                    flows = False
                     continue
 
             elif matchCode == "Wireless-Connections": 
@@ -1022,8 +1279,24 @@ def main():
                     routers  = False
                     endpoints = False
                     wiredConn = False
+                    flows = False
                     wirelessConn = True
+                    maxCols = 3
                     continue
+
+            elif matchCode == "Flows": 
+                    networks = False
+                    switches = False
+                    routers  = False
+                    endpoints = False
+                    wiredConn = False
+                    wirelessConn = False
+                    flows = True 
+                    maxCols = 8
+                    continue
+
+
+            row = row[:maxCols]
 
             if networks:
                 if len(row[netSwitchIdx]) > 0:
@@ -1158,10 +1431,16 @@ def main():
 
             if wiredConn:
                 wiredConnList.append(WiredConnection(row))
-            continue
 
             if wirelessConn:
                 wirelessConnList.append(WirelessConnection(row))
+
+            if flows:
+                if len(row[flowSrcIdx]) > 0:
+                    flowList.append(Flow(row))
+                elif len(row[flowGroupIdx]) > 0:
+                    flowList[-1].addGroup(row[flowGroupIdx])
+            
             continue
 
     msgs = []
@@ -1201,18 +1480,22 @@ def main():
 
     # create interfaces for wired connections
     for conn in wiredConnList:
-        conn.createIntrfcs()
-
+        conn.createCabledIntrfcs()
+    
+    # create interfaces for wired connections
+    for conn in wiredConnList:
+        conn.createCarryIntrfcs()
+    
     # create interfaces for wireless connections
     for conn in wirelessConnList:
-        conn.createIntrfcs()
+        conn.createDevIntrfc()
 
     # include implied links
-    createLinks()
+    #createLinks()
 
     # come back for more interfaces, dealing with wireless, etc
 
-    rtn = {'networks': [], 'routers': [], 'switches': [], 'endpts': [], 'name': topoName}
+    rtn = {'networks': [], 'routers': [], 'switches': [], 'endpts': [], 'flows': [], 'name': topoName}
 
     for netDict in networkList:
         rtn['networks'].append(netDict.repDict())
@@ -1226,6 +1509,9 @@ def main():
     for endptDict in endptList:
         rtn['endpts'].append(endptDict.repDict())
 
+    for flowDict in flowList:
+        rtn['flows'].append(flowDict.repDict())
+
     with open(topo_results_file, 'w') as wf:
         yaml.dump(rtn, wf)
 
@@ -1237,7 +1523,7 @@ def main():
         json.dump(desc, wf)
 
     # create the objAttrib dictionary
-    ad = {'Network': [], 'Switch': [], 'Router' :[], 'Endpoint': [], 'Interface' :[]}
+    ad = {'Network': [], 'Switch': [], 'Router' :[], 'Endpoint': [], 'Flow': [], 'Interface' :[]}
     for net in networkList:
         ad['Network'].append(net.attrbDict()) 
 
@@ -1248,13 +1534,27 @@ def main():
         ad['Switch'].append(router.attrbDict()) 
 
     for endpt in endptList:
-        ad['Switch'].append(endpt.attrbDict())
+        ad['Endpoint'].append(endpt.attrbDict())
+
+    for flow in flowList:
+        ad['Flow'].append(flow.attrbDict())
 
     for intrfc in intrfcList:
         ad['Interface'].append(IntrfcAttrb(intrfc)) 
 
     with open(attrbDescOut_file, 'w') as wf:
         json.dump(ad, wf)
+
+def cleanRow(row):
+    rtn = []
+    for r in row:
+        if r.startswith('#!'):
+            r = ''                     
+        elif len(rtn) > 0 and r.startswith('#'):
+            break
+        rtn.append(r)
+
+    return rtn
 
 if __name__ == '__main__':
     main()

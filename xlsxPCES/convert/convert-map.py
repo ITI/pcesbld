@@ -161,10 +161,9 @@ def empty(row):
     return True
 
 def unnamed(row):
-    for cell in row:
-        if cell.find('Unnamed') > -1  or cell.find('UnNamed') > -1 or cell.find('unnamed') > -1 :
-            return True
-
+    cell = row[0]
+    if (cell.find('Unnamed') > -1  or cell.find('UnNamed') > -1 or cell.find('unnamed') > -1) :
+        return True
     return False
 
 # validate that mappings are unique
@@ -346,7 +345,7 @@ def main():
         for raw in csvrdr:
             row = []
             for v in raw:
-                row.append(''.join(v.split()))
+                row.append(v.strip())
 
             if row[0].find('#') > -1:
                 continue
@@ -356,6 +355,11 @@ def main():
 
             if unnamed(row):
                 continue
+
+
+            row = row[:4]
+
+            row = cleanRow(row)
 
             matchCode = "None"
             rowTypes = ["Mapping"]
@@ -417,6 +421,17 @@ def main():
 
     with open(map_output_file, 'w') as wf:
         yaml.dump(mapDict, wf)
+
+def cleanRow(row):
+    rtn = []
+    for r in row:
+        if r.startswith('#!'):
+            r = ''                     
+        elif len(rtn) > 0 and r.startswith('#'):
+            break
+        rtn.append(r)
+
+    return rtn
 
 if __name__ == '__main__':
     main()

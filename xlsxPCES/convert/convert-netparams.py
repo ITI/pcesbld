@@ -13,6 +13,7 @@ switchList  = []
 routerList  = []
 endptList   = []
 intrfcList  = []
+flowList    = []
 
 validateFlag = False
 
@@ -38,7 +39,7 @@ routerParamLater = ('buffer', 'simple', 'drop')
 endptAttrbIdx = {}
 endptParamIdx = {}
 endptAttrb = ('name', 'groups', 'model', '*')
-endptParam = ('model', 'trace')
+endptParam = ('model', 'interruptdelay', 'trace')
 endptParamLater = ('bckgrndrate', 'bckgrndsrv')
 
 intrfcAttrbIdx = {}
@@ -46,6 +47,11 @@ intrfcParamIdx = {}
 intrfcAttrb = ('name', 'groups', 'devtype', 'devname', 'media', 'faces', '*')
 intrfcParam = ('latency', 'bandwidth', 'mtu', 'trace')
 intrfcParamLater = ('rsrvd','drop')
+
+flowAttrbIdx = {}
+flowParamIdx = {}
+flowAttrb = ('name', 'groups', 'srcdev', 'dstdev', '*')
+flowParam = ('reqrate', 'classid', 'elastic')
 
 attrbDesc = {}
 
@@ -74,6 +80,11 @@ def createIdx():
         intrfcAttrbIdx[ intrfcAttrb[idx] ] = idx
     for idx in range(0, len(intrfcParam)):
         intrfcParamIdx[ idx ] = len(intrfcAttrb)+idx
+
+    for idx in range(0,len(flowAttrb)):
+        flowAttrbIdx[ flowAttrb[idx] ] = idx
+    for idx in range(0, len(flowParam)):
+        flowParamIdx[ idx ] = len(flowAttrb)+idx
 
 network = False
 switch = False
@@ -104,9 +115,14 @@ class Network:
         self.attrb = {}
         self.param = {}
         self.groups = []
- 
+
         for idx in range(0, len(netAttrb)):
             self.attrb[netAttrb[idx]] = row[idx]
+
+        if len(self.attrb['*']):
+            self.attrb['*'] = cnvrtBool(self.attrb['*'])
+            if self.attrb['*'] == 0:
+                self.attrb['*'] = ''
 
         if len(self.attrb['groups']) > 0:
             self.groups = self.attrb['groups'].split(',')
@@ -115,17 +131,24 @@ class Network:
         for idx in range(0, len(netParam)):
             self.param[netParam[idx]] = row[numAttrb+idx]
 
-    def addGroup(grpName):
-        self.groups.append(grpName)
-
     def repDict(self):
         rdList = []
         for idx in range(0, len(netParam)):
             paramName = netParam[idx]
             paramValue = self.param[paramName]
+            numericValue = isNumeric(paramValue)
+ 
             if len(str(paramValue)) > 0:
-                if paramName in ('latency'):
-                    paramValue = str(float(paramValue)/1e6)
+                #netParam  = ('latency', 'bandwidth', 'capacity', 'trace')
+                if numericValue:
+                    if paramName in ('latency'):
+                        paramValue = float(paramValue)/1e6
+                    if paramName in ('bandwidth', 'capacity'):
+                        paramValue = float(paramValue) 
+
+                if paramName == 'trace' and len(str(paramValue))>0:
+                    paramValue = cnvrtBool(paramValue)
+
                 rd = {'paramObj': 'Network', 'attributes': [], 'param': paramName, 'value': paramValue}
                 for jdx in range(0, len(netAttrb)):
                     attrbName = netAttrb[jdx]
@@ -174,7 +197,7 @@ class Network:
             msg = 'error: Network attribute list give unrecognized media type "{}"'.format(media)
             errs.append(msg)
 
-        if len(wildcard) > 0:
+        if (isinstance(wildcard, str) and len(wildcard) > 0) or isinstance(wildcard, int):
             valid, msg = validateBool(wildcard)
             if not valid:
                 msg = 'error: Network attribute gives non-Boolean wildcard description "{}"'.format(wildcard)
@@ -183,7 +206,7 @@ class Network:
                 wcValue = cnvrtBool(wildcard)
 
                 # if the wildcard is not true, clear it
-                if wcValue == "0":
+                if wcValue == 0:
                     self.attrb['*'] = ''
 
         attrbList = attrbDesc['Network']
@@ -250,6 +273,11 @@ class Switch:
         for idx in range(0, len(switchAttrb)):
             self.attrb[switchAttrb[idx]] = row[idx]
 
+        if len(self.attrb['*']) > 0:
+            self.attrb['*'] = cnvrtBool(self.attrb['*'])
+            if self.attrb['*'] == 0:
+                self.attrb['*'] = '' 
+  
         if len(self.attrb['groups']) > 0:
             self.groups = self.attrb['groups'].split(',')
 
@@ -257,20 +285,18 @@ class Switch:
         for idx in range(0, len(switchParam)):
             self.param[switchParam[idx]] = row[numAttrb+idx]
 
-    def addGroup(grpName):
-        self.groups.append(grpName)
-
     def repDict(self):
         rdList = []
         for idx in range(0, len(switchParam)):
             paramName = switchParam[idx]
             paramValue = self.param[paramName]
+
             if len(str(paramValue)) > 0:
                 rd = {'paramObj': 'Switch', 'attributes': [], 'param': paramName, 'value': paramValue}
                 for jdx in range(0, len(switchAttrb)):
                     attrbName = switchAttrb[jdx]
                     attrbValue = self.attrb[attrbName]
-                    if len(attrbValue) > 0:
+                    if len(str(attrbValue)) > 0:
                         attrbDict = {'attrbname': attrbName, 'attrbvalue' : attrbValue}
                         rd['attributes'].append(attrbDict)
                 
@@ -308,7 +334,7 @@ class Switch:
         switchModel = self.attrb['model']
         wildcard = self.attrb['*']
 
-        if len(wildcard) > 0:
+        if (isinstance(wildcard, str) and len(wildcard) > 0) or isinstance(wildcard, int):
             valid, msg = validateBool(wildcard)
             if not valid:
                 msg = 'error: Switch attribute gives non-Boolean wildcard description "{}"'.format(wildcard)
@@ -317,7 +343,7 @@ class Switch:
                 wcValue = cnvrtBool(wildcard)
 
                 # if the wildcard is not true, clear it
-                if wcValue == "0":
+                if wcValue == 0:
                     self.attrb['*'] = ''
 
         if len(switchName) > 0:
@@ -384,6 +410,11 @@ class Router:
         for idx in range(0, len(routerAttrb)):
             self.attrb[routerAttrb[idx]] = row[idx]
 
+        if len(self.attrb['*']) > 0:
+            self.attrb['*'] = cnvrtBool(self.attrb['*'])
+            if self.attrb['*'] == 0:
+                self.attrb['*'] = ''
+ 
         if len(self.attrb['groups']) > 0:
             self.groups = self.attrb['groups'].split(',')
 
@@ -391,20 +422,18 @@ class Router:
         for idx in range(0, len(routerParam)):
             self.param[routerParam[idx]] = row[numAttrb+idx]
 
-    def addGroup(grpName):
-        self.groups.append(grpName)
-
     def repDict(self):
         rdList = []
         for idx in range(0, len(routerParam)):
             paramName = routerParam[idx]
             paramValue = self.param[paramName]
+
             if len(str(paramValue)) > 0:
                 rd = {'paramObj': 'Router', 'attributes': [], 'param': paramName, 'value': paramValue}
                 for jdx in range(0, len(routerAttrb)):
                     attrbName = routerAttrb[jdx]
                     attrbValue = self.attrb[attrbName]
-                    if len(attrbValue) > 0:
+                    if len(str(attrbValue)) > 0:
                         attrbDict = {'attrbname': attrbName, 'attrbvalue' : attrbValue}
                         rd['attributes'].append(attrbDict)
                 
@@ -443,7 +472,7 @@ class Router:
 
         wildcard = self.attrb['*']
 
-        if len(wildcard) > 0:
+        if (isinstance(wildcard, str) and len(wildcard) > 0) or isinstance(wildcard, int):
             valid, msg = validateBool(wildcard)
             if not valid:
                 msg = 'error: Router attribute gives non-Boolean wildcard description "{}"'.format(wildcard)
@@ -452,7 +481,7 @@ class Router:
                 wcValue = cnvrtBool(wildcard)
 
                 # if the wildcard is not true, clear it
-                if wcValue == "0":
+                if wcValue == 0:
                     self.attrb['*'] = ''
 
         if len(routerName) > 0:
@@ -519,15 +548,17 @@ class Endpoint:
         for idx in range(0, len(endptAttrb)):
             self.attrb[endptAttrb[idx]] = row[idx]
 
+        if len(self.attrb['*']):
+            self.attrb['*'] = cnvrtBool(self.attrb['*'])
+            if self.attrb['*'] == 0:
+                self.attrb['*'] = ''
+ 
         if len(self.attrb['groups']) > 0:
             self.groups = self.attrb['groups'].split(',')
 
         numAttrb = len(endptAttrb)
         for idx in range(0, len(endptParam)):
             self.param[endptParam[idx]] = row[numAttrb+idx]
-
-    def addGroup(grpName):
-        self.groups.append(grpName)
 
     def repDict(self):
         rdList = []
@@ -539,10 +570,9 @@ class Endpoint:
                 for jdx in range(0, len(endptAttrb)):
                     attrbName = endptAttrb[jdx]
                     attrbValue = self.attrb[attrbName]
-                    if len(attrbValue) > 0:
+                    if len(str(attrbValue)) > 0:
                         attrbDict = {'attrbname': attrbName, 'attrbvalue' : attrbValue}
                         rd['attributes'].append(attrbDict)
-                
                 rdList.append(rd)              
 
         return rdList
@@ -550,6 +580,7 @@ class Endpoint:
     def validate(self):
         # endptAttrb = ('name', 'group', 'model', '*')
         # endptParam  = ('model', 'trace')
+        global attrbDesc
  
         errs = []
         warnings = []
@@ -573,12 +604,13 @@ class Endpoint:
         #  - the endpt entry lists a model parameter that is not found in the system model
         
         attrbList = attrbDesc['Endpoint']
+
         endptName = self.attrb['name']
         endptModel = self.attrb['model']
 
         wildcard = self.attrb['*']
 
-        if len(wildcard) > 0:
+        if (isinstance(wildcard, str) and len(wildcard) > 0) or isinstance(wildcard, int):
             valid, msg = validateBool(wildcard)
             if not valid:
                 msg = 'error: Endpoint attribute gives non-Boolean wildcard description "{}"'.format(wildcard)
@@ -587,7 +619,7 @@ class Endpoint:
                 wcValue = cnvrtBool(wildcard)
 
                 # if the wildcard is not true, clear it
-                if wcValue == "0":
+                if wcValue == 0:
                     self.attrb['*'] = ''
 
         if len(endptName) > 0:
@@ -635,7 +667,16 @@ class Endpoint:
             if not modelFound:
                 msg = 'error: Endpoint parameter list gives endpt model "{}" not found in the system model'.format(modelParam)
                 errs.append(msg)
- 
+        
+        try:
+            interrupt = float(self.param['interruptdelay'])
+            if interrupt < 0.0:
+                msg = 'error: Endpoint interruptdelay parameter ({}) needs to be non-negative (musecs)'.format(self.param['interruptdelay'])
+                errs.append(msg)
+        except:
+                msg = 'error: Endpoint interruptdelay parameter ({}) needs to be non-negative (musecs)'.format(self.param['interruptdelay'])
+                errs.append(msg)
+        
         if len(warnings) > 0:
             for msg in warnings:
                 print_err(msg)
@@ -654,6 +695,11 @@ class Interface:
         for idx in range(0, len(intrfcAttrb)):
             self.attrb[intrfcAttrb[idx]] = row[idx]
 
+        if len(self.attrb['*']):
+            self.attrb['*'] = cnvrtBool(self.attrb['*'])
+            if self.attrb['*'] == 0:
+                self.attrb['*'] = ''
+ 
         if len(self.attrb['groups']) > 0:
             self.groups = self.attrb['groups'].split(',')
 
@@ -661,17 +707,24 @@ class Interface:
         for idx in range(0, len(intrfcParam)):
             self.param[intrfcParam[idx]] = row[numAttrb+idx]
 
-    def addGroup(grpName):
-        self.groups.append(grpName)
-
     def repDict(self):
         rdList = []
         for idx in range(0, len(intrfcParam)):
             paramName = intrfcParam[idx]
             paramValue = self.param[paramName]
+            numericValue = isNumeric(paramValue)
+
             if len(str(paramValue)) > 0:
-                if paramName in ('latency'):
-                    paramValue = str(float(paramValue))
+                # intrfcParam = ('latency', 'bandwidth', 'mtu', 'trace')
+                if numericValue:
+                    if paramName in ('latency'):
+                        paramValue = float(paramValue)/1e6
+                    if paramName in ('mtu'):
+                        paramValue = int(mtu)
+
+                if paramName in ('trace'):
+                    paramValue = cnvrtBool(paramValue)
+ 
                 rd = {'paramObj': 'Interface', 'attributes': [], 'param': paramName, 'value': paramValue}
                 for jdx in range(0, len(intrfcAttrb)):
                     attrbName = intrfcAttrb[jdx]
@@ -716,13 +769,15 @@ class Interface:
         #  - trace is not a boolean
         #  - MTU is not a non-negative integer
         #
-        if len(wildcard) > 0:
+        if (isinstance(wildcard, str) and len(wildcard) > 0) or isinstance(wildcard, int):
             valid, msg = validateBool(wildcard)
             if not valid:
                 msg = 'error: Interface attribute gives non-Boolean wildcard description "{}"'.format(wildcard)
                 errs.append(msg)
             else:
                 self.attrb['*'] = cnvrtBool(self.attrb['*'])
+                if self.attrb['*'] == 0:
+                    self.attrb['*'] = ''
 
         if len(media) > 0 and media not in ('wired', 'wireless'):
             msg = 'error: Interface attribute list give unrecognized media type "{}"'.format(media)
@@ -813,6 +868,124 @@ class Interface:
 
         return True, ""
 
+class Flow:
+    def __init__(self, row):
+        self.attrb = {}
+        self.param = {}
+        self.groups = []
+
+        for idx in range(0, len(flowAttrb)):
+            self.attrb[flowAttrb[idx]] = row[idx]
+
+        if len(self.attrb['*']) > 0:
+            self.attrb['*'] = cnvrtBool(self.attrb['*'])
+            if self.attrb['*'] == 0:
+                self.attrb['*'] = ''
+
+        if len(self.attrb['groups']) > 0:
+            self.groups = self.attrb['groups'].split(',')
+
+        numAttrb = len(flowAttrb)
+        for idx in range(0, len(flowParam)):
+            self.param[flowParam[idx]] = row[numAttrb+idx]
+
+        self.param['elastic'] = cnvrtBool(self.param['elastic'])
+
+    def validate(self):
+        msgs = []
+        if len(self.param['elastic']) > 0:
+            elastic = self.param['elastic']
+            valid, msg = validateBool(elastic)
+            if not valid:
+                msg = 'error: Flow param lists non-Boolean representation '"{}"' for elastic parameter'.format(elastic)
+                errs.append(msg)
+            else:
+                self.param['elastic'] = cnvrtBool(elastic)
+
+            if not validateFlag:
+                return True, ""
+
+        attrbList = attrbDesc['Flow']
+        srcdev    = self.attrb['srcdev']
+
+        wildcard = self.attrb['*']
+
+        if (isinstance(wildcard, str) and len(wildcard) > 0) or isinstance(wildcard, int): 
+            valid, msg = validateBool(wildcard)
+            if not valid:
+                msg = 'error: Flow attribute gives non-Boolean wildcard description "{}"'.format(wildcard)
+                errs.append(msg)
+            else:
+                wcValue = cnvrtBool(wildcard)
+
+                # if the wildcard is not true, clear it
+                if wcValue == 0:
+                    self.attrb['*'] = ''
+
+        if len(srcdev) > 0:
+            nameFound = False
+            for attrb in attrbList:
+                if attrb['name'] == srcdev:
+                    nameFound = True
+                    break
+            if not nameFound:
+                msg = 'warning: flow attribute list gives srcdev name "{}" not found in the system model'.format(srcdev)
+                warnings.append(msg)
+
+        if len(dstdev) > 0:
+            nameFound = False
+            for attrb in attrbList:
+                if attrb['name'] == dstdev:
+                    nameFound = True
+                    break
+            if not nameFound:
+                msg = 'warning: flow attribute list gives dstdev name "{}" not found in the system model'.format(dstdev)
+                warnings.append(msg)
+
+        if len(self.param['reqrate']) > 0:
+            if not self.param['reqrate'].isnumeric():
+                msg = 'error: flow param list give non numeric request rate "{}"'.format(self.param['reqrate'])
+                msgs.append(msg) 
+            else:
+                reqrate = float(self.param['reqrate'])
+                if reqrate < 0.0:
+                    msg = 'error: flow param list give non numeric request rate "{}"'.format(self.param['reqrate'])
+                    msgs.append(msg) 
+
+        if len(self.param['classid']) > 0:
+            if not self.param['classid'].isdigit():
+                msg = 'error: flow param list give non integer class id "{}"'.format(self.param['classid'])
+                msgs.append(msg) 
+            else:
+                classid = int(self.param['reqrate'])
+                if classid < 0:
+                    msg = 'error: flow param list give negative class id "{}"'.format(classid)
+                    msgs.append(msg) 
+        if len(msgs) > 0:
+            return False, '\n'.join(msgs)
+
+        return True, ""
+        
+
+    def repDict(self):
+        rdList = []
+        for idx in range(0, len(flowParam)):
+            paramName = flowParam[idx]
+            paramValue = self.param[paramName]
+            if len(str(paramValue)) > 0:
+                rd = {'paramObj': 'Flow', 'attributes': [], 'param': paramName, 'value': paramValue}
+                for jdx in range(0, len(flowAttrb)):
+                    attrbName = flowAttrb[jdx]
+                    attrbValue = self.attrb[attrbName]
+                    if len(attrbValue) > 0:
+                        attrbDict = {'attrbname': attrbName, 'attrbvalue' : attrbValue}
+                        rd['attributes'].append(attrbDict)
+                
+                rdList.append(rd)              
+
+        return rdList
+     
+
 def validateNetworks():
     if not validateFlag:
         return True, ""
@@ -896,10 +1069,9 @@ def empty(row):
     return True
 
 def unnamed(row):
-    for cell in row:
-        if cell.find('Unnamed') > -1  or cell.find('UnNamed') > -1 or cell.find('unnamed') > -1 :
-            return True
-
+    cell = row[0]
+    if (cell.find('Unnamed') > -1  or cell.find('UnNamed') > -1 or cell.find('unnamed') > -1) :
+        return True
     return False
 
 def print_err(*a) : 
@@ -908,6 +1080,9 @@ def print_err(*a) :
 
 # called
 def validateBool(v):
+    if isinstance(v, int) and (v==0 or v==1):
+        return True, ""
+
     if isinstance(v, str) and v.startswith('@'):
         return True, ""
 
@@ -924,6 +1099,9 @@ def validateBool(v):
     return False, "error in boolean variable"
 
 def cnvrtBool(v):
+    if isinstance(v, int) and (v==0 or v==1):
+        return v
+
     if isinstance(v, str) and v.startswith('@'):
         return v
 
@@ -931,14 +1109,14 @@ def cnvrtBool(v):
         return v
 
     if isinstance(v, str) and len(v) == 0:
-        return "0"
+        return 0
 
-    if v in ('TRUE','True','true','T','t','yes','Yes','y','Y','1'):
-        return "1"
-    if v in ('FALSE','False','false','F','f','no','N','No','n','0'):
-        return "0"
-    print_err('string "{}" is not a bool'.format(v))
-    return None
+    if v in ('TRUE','True','true','T','t','yes','Yes','y','Y'):
+        return 1
+    if v in ('FALSE','False','false','F','f','no','N','No','n'):
+        return 0
+
+    return v 
 
 def validDev(devName):
     return devName in switchNames or devName in routerNames or devName in endptNames
@@ -964,7 +1142,7 @@ def directoryAccessible(path):
 def main():
     global attrbDesc, validateFlag
 
-    global endptList, networkList, switchList, routerList, intrfcList
+    global endptList, networkList, switchList, routerList, intrfcList, flowList
 
     parser = argparse.ArgumentParser()
     parser.add_argument(u'-name', metavar = u'name of system', dest=u'name', required=True)
@@ -999,7 +1177,7 @@ def main():
     yamlDir = args.yamlDir
     descDir = args.descDir
 
-    if args.validate is None:
+    if args.validate is False:
         validateFlag = False
     else:
         validateFlag = True
@@ -1056,7 +1234,7 @@ def main():
         for raw in csvrdr:
             row = []
             for v in raw:
-                row.append(''.join(v.split()))
+                row.append(v.strip())
 
             if row[0].find('#') > -1:
                 continue
@@ -1067,34 +1245,42 @@ def main():
             if unnamed(row):
                 continue
 
+            row = cleanRow(row)
+
             matchCode = "None"
-            rowTypes = ('Network', 'Switch', 'Router', 'Endpoint', 'Interface') 
+            rowTypes = ('Network', 'Switch', 'Router', 'Endpoint', 'Interface', 'Flows') 
             for rowtype in rowTypes:
                 if row[0].find(rowtype) > -1:
                     matchCode = rowtype 
            
             if matchCode == "Network": 
                     network = True
+                    maxCols = 9
                     switch = False
                     router  = False
                     endpoint = False
                     interface = False 
+                    flows = False
                     continue
 
             elif matchCode == "Switch": 
                     network = False
                     switch = True
+                    maxCols = 7
                     router  = False
                     endpoint = False
                     interface = False 
+                    flows = False
                     continue
 
             elif matchCode == "Router": 
                     network = False
                     switch = False
                     router  = True
+                    maxCols = 7
                     endpoint = False
                     interface = False 
+                    flows = False
                     continue
 
             elif matchCode == "Endpoint": 
@@ -1102,7 +1288,9 @@ def main():
                     switch = False
                     router  = False
                     endpoint = True
+                    maxCols = 7
                     interface = False 
+                    flows = False
                     continue
 
             elif matchCode == "Interface": 
@@ -1111,7 +1299,22 @@ def main():
                     router  = False
                     endpoint = False
                     interface = True
+                    maxCols = 12
+                    flows = False
                     continue
+
+            elif matchCode == "Flows": 
+                    network = False
+                    switch = False
+                    router  = False
+                    endpoint = False
+                    interface = False
+                    flows = True
+                    maxCols = 8
+                    continue
+
+
+            row = row[:maxCols]
 
             if network:
                 networkList.append(Network(row))
@@ -1121,16 +1324,23 @@ def main():
                 switchList.append(Switch(row))
                 continue
 
+
             if router:
                 routerList.append(Router(row))
                 continue
 
+
             if endpoint:
-                endptList.append(Endpt(row))
+                endptList.append(Endpoint(row))
                 continue
+
 
             if interface:
                 intrfcList.append(Interface(row))
+                continue
+
+            if flows:
+                flowList.append(Flow(row))
                 continue
 
     msgs = []
@@ -1182,9 +1392,37 @@ def main():
         intrfcStatements = intrfc.repDict()
         statements.extend(intrfcStatements)
 
+    for flow in flowList:
+        flowStatements = flow.repDict()
+        statements.extend(flowStatements)
+
     expDict = {'expname': topoName, 'parameters': statements}
     with open(exp_output_file, 'w') as wf:
         yaml.dump(expDict, wf, default_flow_style=False)
+
+def cleanRow(row):
+    rtn = []
+    for r in row:
+        if r.startswith('#!'):
+            r = ''                     
+        elif len(rtn) > 0 and r.startswith('#'):
+            break
+        rtn.append(r)
+
+    return rtn
+
+def isNumeric(v):
+    if isinstance(v,int) or isinstance(v,float):
+        return True
+    if isinstance(v,str) and v.isnumeric():
+        return True
+    try:
+        x = float(v)
+        return True
+    except:
+        return False
+
+
 
 if __name__ == '__main__':
     main()

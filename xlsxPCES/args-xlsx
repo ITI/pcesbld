@@ -1,9 +1,8 @@
 -working ./working
 -name exampleName
--xlsx ../../pcesapps/embedded/xlsx/embedded-model.xlsx
+-xlsx examples/flows.xlsx
 -convertDir ./convert
 -csvDir ./csvDir
--yamlDir ../../pcesapps/embedded/templates
+-yamlDir ./yamlDir 
 -templateDir ./templateDir
 -descDir ./descDir
--build

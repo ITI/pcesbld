@@ -49,7 +49,7 @@ def convert_xlsx_to_csv(xlsx_file):
         converted_files.append(sheet_output_name)
 
 def main():
-    global workingDir, csvDir, templateDir, script_present, yamlDir, descDir, convertDir, templateDir, argsDir 
+    global workingDir, csvDir, templateDir, script_present, yamlDir, descDir, convertDir, argsDir 
 
     parser = argparse.ArgumentParser()
     parser.add_argument(u'-name', metavar = u'name of system', dest=u'name', required=True)
@@ -64,7 +64,6 @@ def main():
 
     parser.add_argument(u'-yamlDir', metavar = u'directory where results are stored', dest=u'yamlDir', required=True)
     parser.add_argument(u'-descDir', metavar = u'directory where auxilary descriptions are stored', dest=u'descDir', required=True)
-    parser.add_argument(u'-build', action='store_true', required=False)
 
     cmdline = sys.argv[1:]
     if len(sys.argv) == 3 and sys.argv[1] == "-is":
@@ -86,17 +85,17 @@ def main():
     convertDir = args.convertDir
     templateDir = args.templateDir
 
-    if args.argsDir is None:
-        argsDir = os.path.join(convertDir, 'args')
-    else:
-        argsDir = args.argsDir
-
     scriptDir = os.path.dirname(__file__)
 
     if args.convertDir is None:
         convertDir = os.path.join(scriptDir, 'convert')
     else:
         convertDir = args.convertDir
+
+    if args.argsDir is None:
+        argsDir = os.path.join(convertDir, 'args')
+    else:
+        argsDir = args.argsDir
 
     commonDir = (csvDir, yamlDir, descDir, convertDir, argsDir, templateDir)
     commonDict = {'cp': csvDir, 'yamlDir': yamlDir, 'workingDir': workingDir, 
@@ -160,6 +159,7 @@ def main():
                 print('-yamlDir {}'.format(yamlDir), file=wf)
                 print('-descDir {}'.format(descDir), file=wf)
                 print('-name {}'.format(name), file=wf)
+                print('-validate', file=wf)
  
                 for line in rf:
                     if line.startswith('#'):
@@ -168,8 +168,7 @@ def main():
                     orgLine = line
 
                     pieces = line.split()
-                    if len(pieces) < 2:
-                        continue
+
                     if not pieces[0].startswith('-'):
                         print('unexpected format of input file ',in_args)
                         exit(1)
@@ -196,119 +195,138 @@ def main():
 
     # make sure we can get to all the files we expect in template
 
-    if args.build:
-        # convert experiments sheet to get yaml output description
-        transformations = [("convert-experiments.py", "experiments")] 
+    # convert experiments sheet to get yaml output description
+    transformations = [("convert-experiments.py", "experiments")] 
+
+    for scriptName, sheet in transformations:
+        convertSheet(scriptName, sheet, True)
+
+    # the experiment yaml is in yamlDir
+    experiment_input_file = os.path.join(yamlDir, 'experiments.yaml')
+    with open(experiment_input_file, 'r') as rf:
+        exprmnts = yaml.safe_load(rf)
+   
+    # make a map of the symbols to apply to each sheet
+    sheet2symbol = {}
+    example = exprmnts[0]
+    expKeys = example.keys()
+
+    for code in expKeys:
+        if code=='name' or len(code)==0:
+            continue
+
+        pieces = code.split(',')
+        if len(pieces) > 1:
+            sheets = pieces[1:]
+        else:
+            sheets = sheetNames
+        
+        for sheet in sheets:
+            sheet = sheet.strip()
+            if sheet not in sheet2symbol:
+                sheet2symbol[sheet] = []
+            sheet2symbol[sheet].append(pieces[0].strip())
+        
+    # for each experiment copy the files to be modified from templateDir to csvDir and 
+    # apply the transformations
+
+    for exprmnt in exprmnts:
+    
+        exprmntName = exprmnt['name']
+        print('validating experiment {}'.format(exprmntName))
+
+        # copy the files to be modified
+        for sheet in sheet2symbol:
+            templateFile = os.path.join(templateDir, sheet+'-sheet.csv')
+            inputFile = os.path.join(csvDir, sheet+'-sheet.csv')
+            shutil.copyfile(templateFile, inputFile)
+ 
+        remap = {}
+        for code, value in exprmnt.items():
+            value = str(value)
+            if code == 'name' or len(code) == 0:
+                continue
+            pieces = code.split(',')
+            token = pieces[0].strip()
+            remap[token] = value 
+
+        for sheet, symbolList in sheet2symbol.items():
+            inputFile = os.path.join(csvDir, sheet+'-sheet.csv')
+            tmpFile = os.path.join(csvDir, 'tmp-'+sheet+'-sheet.csv')
+
+            with open(inputFile, 'r') as rf:
+                with open(tmpFile, 'w') as wf:
+                    for line in rf:
+                        for symbol, value in remap.items():
+                            if line.find(symbol) > -1:
+                                strSymbol = 'str('+symbol+')'
+                                if line.find(strSymbol) > -1:
+                                    #valueStr = '"'+value+'"'
+                                    valueStr = value
+                                    line = line.replace(strSymbol, valueStr)
+                                    continue
+                                intSymbol = 'int('+symbol+')'
+                                if line.find(intSymbol) > -1:
+                                    line = line.replace(intSymbol, str(value))
+                                    continue
+ 
+                                boolSymbol = 'bool('+symbol+')'
+                                if line.find(boolSymbol) > -1:
+                                    line = line.replace(boolSymbol, str(boolRep(value)))
+                                    continue
+ 
+                                floatSymbol = 'float('+symbol+')'
+                                if line.find(floatSymbol) > -1:
+                                    line = line.replace(floatSymbol, str(value))
+                                    continue
+ 
+                        wf.write(line)
+
+            # move the copied version back
+            shutil.copyfile(tmpFile, inputFile)                 
+            os.remove(tmpFile)
+
+        # check ALL files for symbols
+        unresolved = {}
+        for sheet in sheetNames:
+            if sheet == 'experiments':
+                continue
+            inputFile = os.path.join(csvDir, sheet+'-sheet.csv')
+            with open(inputFile, 'r') as rf:
+                for line in rf:
+                    if line.find('$') > -1 or line.find('@') > -1:
+                        unresolved[sheet] = True
+                        break
+
+        if len(unresolved) > 0:
+            sheets = unresolved.keys()
+            print('undefined symbols in sheets {}'.format(sheets))
+            exit(0)
+
+        # all the symbol replacements are done, so convert all the sheets, (again)
+        # N.B. a sheet that was modified may generate aux files that depend on the
+        # modification, which means that downstream transformations depend on it, so
+        # we broad-brush the conversions 
+        transformations = [("convert-exec.py", "exec"), ("convert-topo.py", "topo"), ("convert-cp.py", "cp"),
+            ("convert-map.py", "map"), ("convert-netparams.py", "netparams")]
 
         for scriptName, sheet in transformations:
             convertSheet(scriptName, sheet, True)
 
-        # the experiment yaml is in yamlDir
-        experiment_input_file = os.path.join(yamlDir, 'experiments.yaml')
-        with open(experiment_input_file, 'r') as rf:
-            exprmnts = yaml.safe_load(rf)
-       
-
-        # make a map of the symbols to apply to each sheet
-        sheet2symbol = {}
-        example = exprmnts[0]
-        expKeys = example.keys()
-
-        for code in expKeys:
-            if code=='name' or len(code)==0:
-                continue
-
-            pieces = code.split(',')
-            if len(pieces) > 1:
-                sheets = pieces[1:]
-            else:
-                sheets = sheetNames
-            
-            for sheet in sheets:
-                sheet = sheet.strip()
-                if sheet not in sheet2symbol:
-                    sheet2symbol[sheet] = []
-                sheet2symbol[sheet].append(pieces[0].strip())
-            
-        # for each experiment copy the files to be modified from templateDir to csvDir and 
-        # apply the transformations
-
-        for exprmnt in exprmnts:
-        
-            exprmntName = exprmnt['name']
-            print('validating experiment {}'.format(exprmntName))
-
-            # copy the files to be modified
-            for sheet in sheet2symbol:
-                templateFile = os.path.join(templateDir, sheet+'-sheet.csv')
-                inputFile = os.path.join(csvDir, sheet+'-sheet.csv')
-                shutil.copyfile(templateFile, inputFile)
-     
-            remap = {}
-            for code, value in exprmnt.items():
-                value = str(value)
-                if code == 'name' or len(code) == 0:
-                    continue
-                pieces = code.split(',')
-                token = pieces[0].strip()
-                remap[token] = value 
- 
-            for sheet, symbolList in sheet2symbol.items():
-                inputFile = os.path.join(csvDir, sheet+'-sheet.csv')
-                tmpFile = os.path.join(csvDir, 'tmp-'+sheet+'-sheet.csv')
-
-                with open(inputFile, 'r') as rf:
-                    with open(tmpFile, 'w') as wf:
-                        for line in rf:
-                            for symbol, value in remap.items():
-                                line = line.replace(symbol, value) 
-                            wf.write(line)
-
-                # move the copied version back
-                shutil.copyfile(tmpFile, inputFile)                 
-                os.remove(tmpFile)
-    
-            # check ALL files for symbols
-            unresolved = {}
-            for sheet in sheetNames:
-                if sheet == 'experiments':
-                    continue
-                inputFile = os.path.join(csvDir, sheet+'-sheet.csv')
-                with open(inputFile, 'r') as rf:
-                    for line in rf:
-                        if line.find('$') > -1 or line.find('@') > -1:
-                            unresolved[sheet] = True
-                            break
-
-            if len(unresolved) > 0:
-                sheets = unresolved.keys()
-                print('undefined symbols in sheets {}'.format(sheets))
-                exit(0)
-
-            # all the symbol replacements are done, so convert all the sheets, (again)
-            # N.B. a sheet that was modified may generate aux files that depend on the
-            # modification, which means that downstream transformations depend on it, so
-            # we broad-brush the conversions 
-            transformations = [("convert-exec.py", "exec"), ("convert-topo.py", "topo"), ("convert-cp.py", "cp"),
-                ("convert-map.py", "map"), ("convert-netparams.py", "netparams")]
-
-            for scriptName, sheet in transformations:
-                convertSheet(scriptName, sheet, True)
-
         # errors that crop up due to individual experiments have been reported, now
         # do the transformation on the csvs that carry the symbols
 
-        # copy all the templated files into csvDir for processing
-        template2csv()
+    # copy all the templated files into csvDir for processing
+    template2csv()
 
-        # transformations w/o experiment sheet
-        transformations = [("convert-exec.py", "exec"), ("convert-topo.py", "topo"), ("convert-cp.py", "cp"),
-            ("convert-map.py", "map"), ("convert-netparams.py", "netparams"), ("convert-experiments.py", "experiments")]
+    # transformations w/o experiment sheet
+    transformations = [("convert-exec.py", "exec"), ("convert-topo.py", "topo"), ("convert-cp.py", "cp"),
+        ("convert-map.py", "map"), ("convert-netparams.py", "netparams"), ("convert-experiments.py", "experiments")]
 
-        # do 'em all
-        print("Transform csv files with symbols to yaml files with symbols")
-        for scriptName, sheet in transformations:
-            convertSheet(scriptName, sheet, False)
+    # do 'em all
+    print("Transform csv files with symbols to yaml files with symbols")
+    for scriptName, sheet in transformations:
+        convertSheet(scriptName, sheet, False)
 
 def template2csv():
     directory_path = templateDir
@@ -346,15 +364,34 @@ def convertSheet(scriptName, sheet, validate):
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     stdout, stderr = process.communicate()
    
-    if process.returncode != 0:
+    if len(stdout) > 0:
+        print(stdout)
 
-        print("Error from {}: {}".format(scriptName, stderr))
-    else:
-        if len(stdout) > 0:
-            print(stdout)
+    if len(stderr) > 0 :
+        print(stderr)
 
-        if len(stderr) > 0 :
-            print(stderr)
+    #if process.returncode != 0:
+
+    #    print("Error from {}: {}".format(scriptName, stderr))
+    #else:
+    #    if len(stdout) > 0:
+    #        print(stdout)
+
+    #    if len(stderr) > 0 :
+    #        print(stderr)
+
+def boolRep(v):
+    if isinstance(v,int):
+        if v==0 or v==1:
+            return v
+        return 0
+
+    if isinstance(v,str):
+        if v in ('T', 'True', 'TRUE', 't', 'true', 'Y', 'Yes', 'YES', 'yes', '1'):
+            return 1
+        return 0
+
+
 
 if __name__ == "__main__":
     main()

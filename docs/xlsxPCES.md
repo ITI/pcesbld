@@ -1,5 +1,7 @@
 ### Building a PCES model 
 
+(last update May 10, 2025)
+
 #### xlsxPCES
 
 xlsxPCES is an application that uses an xlsx-formated spreadsheet to define entities in a PCES model, define their relationships and parameters, and then have a complete set of PCES input files created that will run an experiment.
@@ -12,18 +14,19 @@ To use xlsxPCES one should obtain the code at github.com/iti/pcesbld.  The packa
 
 The script that coordinates the xlsx -> pces transformation is *pcesbld/xlsxpces/convert/runConvert.py* .   It has up to eight command-line parameters:
 
-| flag         | argument type       | explanation                                                  |
-| ------------ | ------------------- | ------------------------------------------------------------ |
-| -name        | string              | Name for system model                                        |
-| -argsDir     | File directory path | Directory for conversion scripts arguments                   |
-| -csvDir      | File directory path | Directory where .csv files extracted from .xlsx file are placed |
-| -yamlDir     | File directory path | Directory where yaml **pces** input files are written        |
-| -descDir     | File directory path | Directory for auxiliary files used to validate input         |
-| -workingDir  | File directory path | Location for scratch files                                   |
-| -convertDir  | File directory path | Directory for python conversion scripts                      |
-| -templateDir | File directory path | Directory for .csv files with symbolic variables             |
-| -xlsx        | Path to file        | Location of input .xlsx file                                 |
-| -build       | Boolean flag        | Build both **pces** input files and extract .csv files from .xlsx file |
+| flag         | argument type       | explanation                                                  | required |
+| ------------ | ------------------- | ------------------------------------------------------------ | -------- |
+| -name        | string              | Name for system model                                        | yes      |
+| -argsDir     | File directory path | Directory for conversion scripts arguments. Absence forces use of default. | no       |
+| -csvDir      | File directory path | Directory where scratch .csv files extracted from .xlsx file are placed | yes      |
+| -yamlDir     | File directory path | Directory where yaml **pces** input files are written as xlsxPCES final output | yes      |
+| -descDir     | File directory path | Directory for scratch auxiliary files used to validate input | yes      |
+| -workingDir  | File directory path | Location for various other scratch files                     | yes      |
+| -convertDir  | File directory path | Directory for python conversion scripts. Absence forces use of default. | no       |
+| -templateDir | File directory path | Directory for scratch .csv files with symbolic variables     | yes      |
+| -xlsx        | Path to file        | Location of input .xlsx file                                 | yes      |
+
+***Table 1: Command-line arguments for runConvert.py script***
 
 These may be written, one per line, into a file that can be passed rather then all the parameters on the command-line, e.g., (from the home directory *pcesbld/xlsxpces*)
 
@@ -31,7 +34,7 @@ These may be written, one per line, into a file that can be passed rather then a
 % python3 runConvert.py -is args-xlsx
 ```
 
-The *xlsx-args* file included in the distribution references an empty template .xlsx file (and so must be changed), and references default subdirectories for the result of the arguments that are all subdirectories of  *pcesbld/xlsxpces*, e.g., *descDir*, *resultsDir*, *csvDir*, and *working*.
+The *xlsx-args* file included in the distribution references an empty template .xlsx file (and so must be changed), and references default subdirectories for the result of the arguments that are all subdirectories of  *pcesbld/xlsxpces*, e.g., *descDir*, *resultsDir*, *csvDir*, and *working*.  We will later see that building models within the *pcesapp* repo framework limits the number of choices a user has to make to (a) giving the model a name, (b) identifying the path to the input xlsx file, and  (c) identifying the path to the directory where the files produced as the tool's output are written.
 
 Once the **pces** input files are created there is no need to remember the .csv files (provided of course that the input .xlsx file is retained).  The auxiliary files written into the -descDir location aren't used directly by **pces**, but may be useful to auxiliary functions such as a graphical user interface.   
 
@@ -55,7 +58,7 @@ The red arrows indicate stated input/output relations between functions, and the
 
 ![CPG](./images/CPG.png)
 
-​			Figure 1: Computational patterns and functions in running example
+***Figure 1: Computational patterns and functions in running example***
 
 An experiment starts with the execution of function 'startThread' in HMI.  The first two functions establish some bookkeeping, the 'generatePckt' function simulates creation of a request of some computational service, which is passed to the function 'accelEncrypt' that models encryption that request, using a cryptographic accelerator function in the host that performs that task.   The encrypted message is passed then to the function 'validateSrc' in the 'Embedded' computational pattern.  The idea here is to model the sort of 'every message' edge-based authentication as is proposed for zero-trust architectures.  Not seen in this diagram, the 'validateSrc' function engages with authentication logic in the 'authenticate' function of the 'EmbeddedAuth' computational pattern.   Following validation the message is passed within 'Embedded' to the 'reqDecrypt' function, which (again not expressed explicitly in this diagram) has the 'cryptoProcess' function of the 'Crypto' computational pattern perform the decryption.  The now-decrypted message is passed within 'Embedded' to the 'embeddedProcess' function which performs the requested computational work, and then passes the result to the 'requestEncrypt' function, which requests that function 'cryptoProcess' in 'Crypto' perform the encryption, and on completion, passes the message back to HMI, where it is received by  HMI's 'validateSrc' function.  This works just as did the function of that name for Embedded, the message is passed to HMI's function 'accelDecrypt' which uses the on-board accelerator to decrypt the message.   It is then passed to function 'processRtn' which ruminates on the result of the requested computation, and finally the message passes through 'endMeasure' and 'endThread' where the bookkeeping for this execution thread is finished.
 
@@ -75,7 +78,7 @@ Next, the function has a 'RespMethods' dictionary. Given the that dictionary and
 
 ![pces-func-op](./images/pces-func-op.png)
 
-​							Figure 2: Steps in evaluation of function
+***Figure 2: Steps in evaluation of function***
 
 
 
@@ -100,9 +103,11 @@ We next turn to observation and discussion of the individual .xlsx sheets.
 
 The execTime sheet holds descriptions of function timings.   An example of the sheet is given below.
 
-![execTime-sheet](./images/execTime-sheet.png)
+![execTime-sheet](./images/exec-time-1.png)
 
-​						Figure 3: execTime sheet in running xlsxPCES model
+![execTime-sheet](./images/exec-time-2.png)
+
+***Figure 3: execTime sheet in running xlsxPCES model***
 
 The sheet defines four categories, with identifying names in green, 'CPU Entries', 'Accelerator Entries', 'Router Entries', and 'Switch Entries'.  The reason for the separation is that different kinds of devices have different operations, and so we expect the 'operation' column for rows of a given category to refer to operations for which we have timings for that kind of device.  Otherwise the layouts of each category are the same.   
 
@@ -110,7 +115,7 @@ First of all, note that a row where all the columns are empty is ignored.   It i
 
 For entries in the 'CPU Entries' and 'Accelerator Entries' categories the exection time for a given operation on a given device model is specified in micro-seconds, as a function of the packet length.   When a timing is required for an operation on a packet whose length is not found on the table, the time is taken to be a linear interpolation between the timings of the closest two packet lengths that bracket it, or by extrapolation if the packet length falls outside of the range of packet lengths that are listed.
 
-For Switch and Router entries the timing columns are named 'const' and 'perbyte'.    These are derived from linear regression models of operation times taken as a function of the length of the packet on which the operation was performed.   Given a packet length of L, the time required is taken to be t = c + p*L, where c appears in the 'const' column, and p appears in the 'perbyte' column.
+For Switch and Router entries the timing (in column 'exec time') gives measured (average) time for the operation, as a function of the packet length and interface bandwidth values given in columns 'pcktlen' and 'bandwidth'.   If the simulation is using packet lengths and/or bandwidths that are not represented in the table, the estimated time of the operation is computed by linear interpolation. 
 
 The color key identifies green as designating a category,  and the code words serving as categories matter. Processing script *exec-sheet.py* scans the lines of a .csv representation of this form,  and notices when it encounters strings that are marked here in green.   This serves to categories the models and operations listed in lines that follow as being associated with the kind of device associated with the category.
 
@@ -124,9 +129,11 @@ These operation codes also appear in cells on other sheets of the .xlsx model, a
 
 The topo sheet holds a description of the topology of the devices and networks referenced in the simulation model.  The model entities and attributes related to the **mrnes** package imported by **pces**.
 
-![topo-sheet](./images/topo-sheet.png)
+![topo-sheet](./images/topo-sheet-1.png)
 
-​						Figure 4: top sheet in running xlsxPCES model
+
+
+***Figure 4: topo sheet in running xlsxPCES model***
 
 This sheet has six categories, one to describe networks, three to describe devices that are embedded in networks, and two related to connections between devices in those networks.
 
@@ -140,9 +147,9 @@ Routers described in the Routers category have precisely the same understanding 
 
 For an Endpoint in the Endpoints category the 'name',  'model', 'groups', 'peers', and 'faces' attribute columns are exactly as defined for Switches and Routers.   With an endpoint though we have the option of specifying  the number of CPU cores available (in column 'cores').   If this cell is empty the number of cores is taken to be 1, any other entry must be a positive integer. An endpoint may also include reference to one or more hardware accelerators, e.g., for hash computations.    The 'accel name' and 'accel model' columns can be used to map a dictionary key (the name) to a dictionary value (the model).  For a given endpoint these two columns may extend through multiple adjacent rows, always sharing the same length.
 
-The 'Direction Connection' and 'Open Connection' categories describe which pairs of network devices connect to each other, and how.   Each non-empty row in either category describes a connection.  For a connection in the 'Direct Connection' category the names of the two devices are specified (as 'device 1' and 'device 2'), names which have been assigned to devices already in this sheet.   The 'cable' attribute speaks to an **mrnes** characteristic of connections between interfaces.   To specify it as 'cable' is to declare that there is a direct wired connection between the interfaces, and that the latency across that connection is specified.   To specify this for that connection  in topo.sheet.csv, one selects a boolean value for True in the 'cable' column.   If 'cable' is left blank or is given a boolean value for False, the connection between named devices is through the network they both face, with a latency specified for that network (rather than for connection known to be directly wired).     This lets a model indicate that two devices communicate directly through a network, but that the quality of that connection is dependent on (and is computed by) the state of the network at the time of the transmission.
+The 'Wired-Connections' categories describe which pairs of network devices connect to each other using wired connections.  The 'device 1' and 'device 2' columns expect strings previously placed in some device's 'name' column.   The boolean 'cable' column is used to indicate whether there is a direct cabled connection between the two devices, with no intervening devices (like a switch) between them, expressed *in the model*.   For example, a user may create a model where every host in a LAN connects directly to a switch, which enables every host to connect with every other host in the LAN.   Every host-switch connection would be documented, 'TRUE' in the cable category.   But it might also be that the user wishes to specify that host h1 and host h2 are connected, but not with a direct cable from one to the other.  In this case the user leaves the 'cable' column blank (or puts in FALSE), device 1' would be the name of one of the host, 'device 2' the name of the other, and the 'cable' column would be false.  The choice impacts how latencies and bandwidths are computed during a simulation.   A 'cabled' connection is taken to imply dedicated network interface cards at both ends, fixed and dedicated bandwidth to that connection at both ends, and a fixed on-wire latency for a bit traversing that cable.  A non-cabled connection bases latency and bandwidth on traffic load on the network and through the interfaces.  The calculation assumes that a host has only one network interface connected to that LAN.
 
-A connection listed in the 'Open Connection' category gives a device name (found elsewhere on the sheet describing the device) and a network name (found in column 0 describing some network in the Network Category).    When the 'mediatype' attribute is 'wireless', the device is assumed to be able to communicate with all other devices with wireless interfaces facing the same network.
+The 'Wireless-Connections' categories describe the hosts on a wireless LAN, and a wireless hub to which the host connects.   It specifies the network (named earlier in the sheet) involved in that connection.
 
 #### cp sheet
 
@@ -154,7 +161,7 @@ The graphic below illustrates an example of the 'Patterns' category.
 
 ![cp-patterns](./images/cp-patterns-sheet.png)
 
-​					Figure 5: Patterns category in cp sheet of running xlsxPCES model
+***Figure 5: Patterns category in cp sheet of running xlsxPCES model***
 
 A 'Computational Pattern' is a loose association of functions; the elements of this category each describe a computational pattern (or sometimes, CmpPtn).   Each CmpPtn has a unique name, which appears in the column 'name'.   A CmpPtn is identified to belong to a 'type', although this designation is included to help organize representation of a CmpPtn in a database and plays no further role in the specification of the model.   The adjacent columns 'func class' and 'func label' hold descriptions of functions, the class to which they belong, and their 'label', which is a unique (within a CmpPtn) identifier for the function.  These two columns contain a list of class-label pairs.  In the example above the CmpPtn named HMI contains nine functions.  These have unique (to the CmpPtn) labels;  the codes in the 'func class' column are drawn from the set of function classes {'start', 'measure', 'processPckt', 'srvReq', 'srvRsp', 'transfer', 'finish'}.  The 'name' and 'type' columns for a given CmpPtn may remain empty for rows other than the first.  As with earlier sheets, the appearance of a non-empty value in the 'name' cell which is different from the previous most recently encountered 'name' cell value is taken by the parser to indicate the beginning of a new CmpPtn description.
 
@@ -168,7 +175,7 @@ Entries in the 'Connections' category describe the input-output relationships be
 
 ![cp-connections-sheet](./images/cp-connections-sheet.png)
 
-​				Figure 6: Connections category in cp sheet of running xlsxPCES model
+***Figure 6: Connections category in cp sheet of running xlsxPCES model***
 
 As there are no lists or dictionaries associated with a connection entry, each individual row describes a unique connection.  Every CmpPtn-label pair identified as source or destination will have been previously identified in the 'Patterns' category.  The careful reader may notice that the CmpPtns 'Crypto', 'HMIAuth', and 'EmbeddedAuth' do not appear anywhere in the 'Connection's category.   To be sure the model provides connections to their functions, but expression of those connections occur in specialized contexts and don't require expression here.   
 
@@ -188,7 +195,7 @@ Each of the functions we use need to be configured with parameters that impact t
 | srvRsp         | Simulates the computational delay associated with the computation associated with providing a requested service | "default"                      |
 | transfer       | Used to forward an input message to some designated receiving function, provides more generality for expressing input/output relationships than just a Computational Pattern Graph. | "default"                      |
 
-​								Figure 7: **pces** function classes
+***Figure 7: pces function classes***
 
 We also include the class-dependent list of 'method codes' that the out-of-the-github-box version of **pces** contains.  These place a key role in defining a function's response to an incoming message.   In another document [User-Extensions](#) we describe how a user can extend **pces** out-of-the-box behavior to include details that are special to the model, and/or should not be publically available through github.  Part of that extension can include additional entries into the tables indexed by the method codes.
 
@@ -204,7 +211,7 @@ Figure 8 illustrates the fields for rows describing start functions, where the p
 
 ![start-finish-init](./images/start-finish-init.png)
 
-​			Figure 8:  start and finish function configurations in xlsxPCES running example
+***Figure 8:  start and finish function configurations in xlsxPCES running example***
 
 
 
@@ -218,7 +225,7 @@ Figure 9 below gives the rows for the running model's two measure functions, bot
 
 ![cp-measure-sheet](./images/cp-measure-sheet.png)
 
-​				Figure 9:  measure function configurations in xlsxPCES running example
+***Figure 9:  measure function configurations in xlsxPCES running example***
 
 ##### transfer
 
@@ -230,7 +237,7 @@ However, the experience we have had has taught us that a useful functionality we
 
 ![transfer-cp-sheet](./images/transfer-cp-sheet.png) 
 
-​				Figure 10:  Configuration information headers for transfer function
+***Figure 10:  Configuration information headers for transfer function***
 
 Like all other initialization blocks, this one identifies the CmpPtn name and function label of the transfer function being configured.  The transfer function has 'trace' and 'msg2mc' fields that have the same meaning as they do with other function classes.   The function offers two ways to direct the forwarding of the message.   A boolean parameter in the column labeled 'carried' will, when that parameter is True, extract the destination's CmpPtn name, function label, and outbound message type from fields reserved for that purpose in the message's (internal) format.   Should it happen that the 'carried' parameter is False, the destination particulars of the outbound message are defined by the 'xcp', 'xlabel', and 'xmsgtype' parameters that appear in the columns of those names.
 
@@ -242,7 +249,7 @@ The first six columns of the processPckt function group of initializations appea
 
 ![processPckt-cp-sheet-left](./images/processPckt-cp-sheet-left.png)
 
-​	Figure 11:  processPckt function parameters for first six columns in the xlsxPCES running example
+***Figure 11:  processPckt function parameters for first six columns in the xlsxPCES running example***
 
 
 
@@ -256,7 +263,7 @@ Figure 12 gives the right half of the processPckt rows.
 
 ![processPckt-cp-sheet-right](./images/processPckt-cp-sheet-right.png)
 
-​    Figure 12:  processPckt function parameters for last five columns in the xlsxPCES running example
+***Figure 12:  processPckt function parameters for last five columns in the xlsxPCES running example***
 
 The emptiness of the msg2mc columns means that the method code 'default' is used, and so the default response method for processPckt's is used.   The emptiness of the msg2msg columns means that each of the processPckt functions have exactly one output edge, and the characteristics of that edge define the outbound message type (as well as the destination function).  The only non-empty entries are for the HMI accelEncrypt and accelqdecrypt functions in the 'acclname' column.   These name the accelerator used to perform the functions.   The names found in these cells have to also appear in the topo sheet, in the 'accel name' column for endpoints.  As the topo sheet is parsed by xlsxPCES before the cp sheet is, that information is available and is used as part of the validation of the cp sheet information.
 
@@ -268,19 +275,19 @@ Figure 13 illustrates the first six columns of the srvReq configurations for the
 
 ![srvReq-cp-sheet-left](./images/srvReq-cp-sheet-left.png)
 
-​	Figure 13:  srvReq function parameters for first six columns in the xlsxPCES running example
+***Figure 13:  srvReq function parameters for first six columns in the xlsxPCES running example***
 
 Most of what we see here is entirely familiar by now.  The functions are named by the 'cmpptn' and 'label' columns, there is a 'trace' flag.   The msg2mc entries illustrate one more way that the msg2mc configuration can be approached, as the '*' string is taken to be the wildcard.   All incoming message types are then mapped to the method code contained in the (msg2mc) method code field.  Here that is simply 'default', and the attentative reader will notice that we would achieve the same effect if we had simple left the msg2mc dictionary empty!  However, here as elsewhere in the model, the point is to illustrate what xlsxPCES understands.
-
-One column is new though, 'bypass'.  When set to True, the execution of the function does **not** request service.  The intention is to make it easy to modify a model simply to determine the performance impact of including---or not---some particular service, such as zero-trust-network level authentication.  On encountering a srvReq function with the bypass flag set, the processing looks for the the characteristics and  destination of the the simply-forwarded in bound message using exactly the same logic as it would have done had the service been requested and completed.
 
 Figure 14 shows the remaining six columns of these five srvReq functions.  We recognize that empty msg2msg dictionaries mean that these functions have single outputs, and that the destination and message type of the outbound message is completely characterized by that output.
 
 ![srvReq-cp-sheet-right](./images/srvReq-cp-sheet-right.png)
 
-​	    Figure 14:  srvReq function parameters for last six columns in the xlsxPCES running example
 
-Things get a bit more complex though considering the other four columns.  In the big picture, the srvReq function will identify a function to use as a server, and send a message to it using as the message type the value found in the srvop column.   The server will receive the message, simulate service, and return the message.  Now the default response handler does not automatically add a simulation delay to model the time formulating a requested (but the server will add time).   However, when the server returns the message, signalling the completion of service, it is possible that the srvReq function expend some computational energy doing something with the returned result.  For this case, the srvReq configuration includes the 'response op' option, which means that if there is a non-empty string in the 'rspop' column, that string is assumed to be an op code for an operation whose timing is recorded in the function execution time table, and is used to find that time, and delay the forwarding of the message by that amount. 
+
+***Figure 14:  srvReq function parameters for last six columns in the xlsxPCES running example***
+
+Things get a bit more complex though considering the other seven columns.  In the Big Picture, the srvReq function will identify a function to use as a server and the operation it requests of the server, and send a message to it using as the message type the value found in the srvop column.  Note that in this example the operation code involves an experiment variable.   When the model is run,  some string specified in the 'experiments' sheet is substituted for the substring 'str($crypto)', for example, 'AES-128-CBC', so that the operation code is one found in the execution timing table.   The server will receive the message, simulate service, and return the message.  Now the default response handler does not automatically add a simulation delay to model the time formulating a requested (but the server will add time).   However, when the server returns the message, signalling the completion of service, it is possible that the srvReq function expend some computational energy doing something with the returned result.  For this case, the srvReq configuration includes the 'response op' option, which means that if there is a non-empty string in the 'rspop' column, that string is assumed to be an op code for an operation whose timing is recorded in the function execution time table, and is used to find that time, and delay the forwarding of the message by that amount. 
 
 There are different ways the server identity may be discovered.  The first test is whether the srvReq function has exactly one CFG edge directed to a function from the 'srvRsp' class.  If so, that function is taken to be the server, and the requested is directed to it.
 
@@ -292,17 +299,19 @@ Functions of the srvRsp class are specialized to support the client-server model
 
 ![srvRsp-cp-sheet-left](./images/srvRsp-cp-sheet-left.png)
 
-Figure 15:  srvRsp function parameters for first six columns in the xlsxPCES running example
+***Figure 15:  srvRsp function parameters for first six columns in the xlsxPCES running example***
 
-The 'cmpptn', and 'label' columns identify the function being configured.  The non-empty 'timingcode' columns for the 'EmbeddedAuth' and 'HMIAuth' servers are small but not surprising.  We see that the model should limit message types to those functions to the sole code 'auth', but we can see in the 'srvop' columns of functions that cite these two as servers that this is the case.  Deeper digging is needed to ensure that any service request that reaches one of these servers through a 'Services' table entry is likewise limited, but this is possible.   
+The 'cmpptn', and 'label' columns identify the function being configured.  The non-empty 'timingcode' columns for the 'EmbeddedAuth' and 'HMIAuth' servers are not surprising.  We see that the model should limit message types to those functions to the sole code 'auth', but we can see in the 'srvop' columns of functions that cite these two as servers that this is the case.  Deeper digging is needed to ensure that any service request that reaches one of these servers through a 'Services' table entry is likewise limited, but this is possible.   
 
-The emptiness of the 'timingcode' dictionary and the presence of a new list 'directprefix' raises the question of how the Crypto CmpPtn function 'cryptoProcess' is to determine how to look up the service time from the function execution time table.  The answer (again explained in more detail in the document "Overview of PCES Models"), is that on receiving a message, the default srvRsp response method looks to see whether the message type has a 'prefix', meaning an initial substring that terminates immediately before a '-' character.   If it does, and if that substring matches some entry in the 'directprefix' table, then the entire code carried by the message type is used as the op code for the operation.   If it does not, then the message code is used to index into the 'timingcode' table and look up an op code, just as in the default  processPckt response function.   Of course, with the configuration above, every received message type better have a prefix that matches 'encrypt' or 'decrypt', otherwise a runtime error is generated.
+For the Crypto/cryptoProcess function the emptiness of the 'timingcode' dictionary and the presence of a new list 'directprefix' raises the question of how the Crypto CmpPtn function 'cryptoProcess' is to determine how to look up the service time from the function execution time table.  The answer (again explained in more detail in the document "Overview of PCES Models"), is that on receiving a message, the default srvRsp response method looks to see whether the message type has a 'prefix', meaning an initial substring that terminates immediately before a '-' character.   If it does, and if that substring matches some entry in the 'directprefix' table, then the entire code carried by the message type is used as the op code for the operation.   If it does not, then the message code is used to index into the 'timingcode' table and look up an op code, just as in the default  processPckt response function.   Of course, with the configuration above, every received message type better have a prefix that matches 'encrypt' or 'decrypt', otherwise a runtime error is generated.
 
 The rationale for this method to have the cyptographic specifics of crypto operations embedded in the configurations of the functions that request service, rather than turn an 'encrypt' request from a srvReq function into a single encryption oriented operation code that is encoded in the server.  Greater flexibility (and realism) comes with the approach we adopted.
 
 Figure 16 shows the remaining columns for this example's srvRsp function initialization.  The main point is to illustrate the use of a wild card (*) in the message type.   Had we left both msg2mc columns empty the default message code would have been assumed;  however, with the wildcard we could have (but didn't) made a different method code the default.
 
 <img src="/Users/nicol/Dropbox/github-repos/pcesbld/docs/images/srvRsp-cp-sheet-right.png" alt="srvRsp-cp-sheet-right" style="zoom:50%;" />
+
+***Figure 16: Rightmost columns of srvRsp function initialization***
 
 #### mapping sheet
 
@@ -312,7 +321,7 @@ Every **pces** function is assigned to be executed on some 'Endpoint' that was i
 
 
 
-​				Figure 16:  The mapping sheet in the xlsxPCES running example
+***Figure 17:  The mapping sheet in the xlsxPCES running example***
 
 A function to be mapped is described by the name of the CmpPtn that holds it, and the function label.   The name of the endpoint it is mapped to appears in the column labeled 'endpoint'.   The values in these columns must be found in the 'endpt name' column for endpoints in the topo sheet.
 
@@ -320,11 +329,11 @@ The integer values in the 'sched priority' column need to be non-negative, and p
 
 #### netParams sheet
 
-Performance parameters (like bandwidth, and latency) are described in the netParams sheet.   The sheet used for the xlsxPCES running example appears as Figure 17 below.
+Performance parameters (like bandwidth, and latency) are described in the netParams sheet.   The sheet used for the xlsxPCES running example appears as Figure 18 below.
 
-![netParams-sheet](./images/netParams-sheet.png)
+![netParams-sheet](./images/netparams-sheet.png)
 
-​				Figure 17:  The netParams sheet in the xlsxPCES running example
+***Figure 18:  The netParams sheet in the xlsxPCES running example***
 
 There is a separate section, with separate labels, for each of the five network object types (Network, Switch, Router, Endpoint, and Interface).    Here, for each object type, the columns in yellow describe object attributes, and columns in blue denote parameter values that can be set.   There may be multiple rows for each network object type.  In a given row one marks the attributes the modeler choose to identify the objects to be given parameter values, and marks the parameter columns with the values to ascribe.
 
@@ -340,31 +349,99 @@ The most interesting attributes and parameters are associated with interfaces. A
 
 Each execution of the **pces** simulator uses a fixed set of experimental parameters, and produces a file of "measurements" whose collection has been encoded into the the model.   The most common use of simulators though is to run a number of trials where the experimental parameters are varied between trials, in order to assess the performance of the system being modeled to those parameters.  To support this use case, xlsxPCES includes an 'experiments' sheet to describe a collection of parameter settings that define an experiment comprised of multiple runs.
 
-Figure 18 below illustrates a sheet we use with the running example.
+Figure 19 below illustrates a sheet we use with the running example.
 
 <img src="/Users/nicol/Dropbox/github-repos/pcesbld/docs/images/experiments-sheet.png" alt="experiments-sheet" style="zoom:50%;" />
 
-​					Figure 18: An experiments sheet for the the xlsxPCES running example
-
-The row whose first cell is 'name' is recognized as defining the parameters to be varied.  The somewhat idyiosyncratic value in columns beyond the first describe parameters settings, one per column.   Each of these column heading cells is a comma separated list, whose first element must begin with the character '$'.   This element is a 'symbol' which can be placed as a substring of a value in the cell of some other sheet.  The remaining elements of the comma separated list are names of xlsxPCES sheets in which the given symbol may appear.    So in this example we define a symbol '$crypto' and state that this symbol may be found in the 'cp' sheet of the model, and define a symbol '$bndwdth' and declare that it may be found in the 'netParams' sheet.    These representations are shown below for cells in the 'cp' sheet
-
-![cp-symbol-1](/Users/nicol/Dropbox/github-repos/pcesbld/docs/images/cp-symbol-1.png)
-
-<img src="/Users/nicol/Dropbox/github-repos/pcesbld/docs/images/cp-symbol-2.png" alt="cp-symbol-2" style="zoom:33%;" />
-
-​		Figure 19: Application of symbol $crypto in the 'cp' sheet of the xlsxPCES running example
 
 
+***Figure 19: An experiments sheet for the the xlsxPCES running example***
 
-and also in the 'netParams' sheet
+The row whose first cell is 'name' is recognized as defining the parameters to be varied.  The somewhat idyiosyncratic value in columns beyond the first describe parameters settings, one per column.   Each of these column heading cells is a comma separated list, whose first element must begin with the character '\$'.   This element is a 'variable' which can be placed as a substring of a value in the cell of some other sheet.  The remaining elements of the comma separated list are names of xlsxPCES sheets in which the given variable may appear.    So in this example we define a variable '\$crypto' and state that this symbol may be found in the 'cp' sheet of the model, define a variable '$bndwdth' and declare that it may be found in the 'netParams' sheet, and define a variable 'no_zerotrust' and declare that it may be found in the 'cp' sheet.     We previously saw these variables used, in Figures 13, 14, and 18.
 
-![netParams-symbol](/Users/nicol/Dropbox/github-repos/pcesbld/docs/images/netParams-symbol.png)
-
-​        Figure 20: Application of symbol $bndwdth in the 'cp' sheet of the xlsxPCES running example
-
-In the 'experiments' sheet the rows following the definition of symbols and sheets where they may appear each describe a simulation run, giving the values to assign to each of the symbols for that run.   So in this example we define four experiments,  exploring all options possible from varying the crypto parameters from the set {AES-256-CBC, AES-128-CBC} and all interface bandwidth parameters from {10, 1000} Mbs.
+In the 'experiments' sheet the rows following the definition of symbols and sheets where they may appear each describe a simulation run, giving the values to assign to each of the symbols for that run.   So in this example we define four experiments,  exploring all options possible from varying the crypto parameters from the set {AES-256-CBC, AES-128-CBC}, and all interface bandwidth parameters from {10, 1000} Mbs.
 
 When *pdesbld/xlsxPCES/convert-xlsx.py* is run it builds and tests the parameter settings for each experiment, for the purposes of running the validation checks on that experiment's particular settings.   After this phase the csv files with the symbols are transformed into **pces** input files that include the symbols.   When then the set of experiments is run, for each experiment the yaml files with symbols are converted into yaml files where the symbols have been replaced with that experiment's parameter settings, and the outputs that result from that simulation run are gathered and placed in a single file that reports each individual experiment's results
 
 #### Execution of xlsxPCES Tool
 
+The main directory of the *github.com/iti/pcesbld* repo currently has two files (LICENSE and README.md), a standard subdirectory named *docs*, and another subdirectory named *xlsxPCES*, which contains the tool material.
+
+Figure 20 illustrates the structure of *pcesbld/xlsxPCES*.
+
+![xlsxPCES-repo](./images/xlsxPCES-repo.png)
+
+***Figure 20: Layout of xlsxPCES directory of pcesbld repository***.
+
+The examples laid out in *github.com/iti/pcesapps* assume that a bash environment variable \$xlsxPCES is set to the host's path to this directory.   At the highest level, a model is built calling
+
+```
+% python $xlxsPCES/runConvert.py -is $xlsxPCES/args-xlsx
+```
+
+Naturally, the command-line argument file *args-xlsx* identifies key parameters that guide the construction of the model.  The arguments expected are listed at the front of this document, as Table 1.   The values these are given by the *args-xlsx* file distributed with the repo are
+
+```
+% cat args-xlsx
+-working ./working
+-name exampleName
+-xlsx ./examples/embedded.xlsx
+-csvDir ./csvDir
+-yamlDir ./yamlDir
+-templateDir ./templateDir
+-descDir ./descDir
+```
+
+The root of the paths listed in the file is \$xlsxPCES, the directory shown in Figure 22.  The various scratch file directories (*working*, *descDir*, *csvDir*, *templateDir*) are all specified to be those shown in the diagram.   The input file is specified to be the *embedded.xlsx* model in the examples subdirectory, and *yamlDir* is named to be the destination for the tool's output files.   Command-line parameters *-convertDir* and *-argsDir* are absent, so that defaults *\$xlsxPCES/convert* and  *\$xlsxPCES/convert/args* are used. 
+
+The example files under subdirectory *examples* are those used for applications with the same name in the *github.com/iti/pcesapps* repository.
+
+*runConvert.py* uses python module 'pandas' to read the input xlsx file with multiple sheets, and produce for each sheet a \.csv file, written into the *templateDir* directory.  Cells in the .csv files may include 'experiment variables', i.e., strings defined in the 'experiments' sheet with a leading \$ symbol.    The 'experiments' sheet defines for each experiment variable a concrete value it will take.  For the validation phase, *runSim.py* cycles through the settings for each experiment, for each experiment validating the model created by replacing the experiment variables with their values for that experiment.  This fully instantiated set of .csv files are written in subdirectory *csvDir* and then the various conversion (and validation) scripts are applied to them.  The scripts for these are in subdirectory *convert*, with names indicative of the sheet the script is focused on.   For each application of a convert script *runSim.py* creates a command-line input file for the script by writing out command-line parameters common to all the scripts (the *-csvDir*, *-descDir*, and *-yamlDir* values from *args-xlsx*, and concatenating the contents of the script-specific command line arguments in the 'args-sheet' files within the *args* subdirectory.     A user should not need ever to modify those argument files.   
+
+For each experiment and its attenant mapping of values to experiment variables, model validation is performed by each script.  To simplify this step one sheet's script sometimes produces auxilary information that another script reads in at startup.   For example, the script that processes the sheet which describes the mapping of **pces** functions to **mrnes** endpoints needs to check that the strings it sees naming functions and endpoint all correspond to functions identified in the 'cp' sheet, and endpoints identified in the 'topo sheet.' So this check is more convenient if when 'convert-cp.py' and 'convert-topo.py' execute they push descriptions needed by other scripts into auxilary files.   This approach necessitates *runSim.py* calling the conversion scripts in a specific order, and having that auxilary information be written into a subdirectory known to all the conversion scripts, the one named by the *-descDir* command line parameter.
+
+The validation steps in a script report inconsistencies which are displayed in the terminal window. The reports try to be specific about the problems they detect, and ideally help a user identify what is missing or misspelled in the model spreadsheet.   
+
+*runSim.py*'s final step is to apply the scripts again, but on the .csv files without any experiment variable replacement, inhibiting the  validation (which cannot be expected to work completely in the presence of variables), and writing the dictionaries created by a script out in .yaml form, to the *yamlDir* subdirectory.
+
+In principle, if a user copies the *xlsxPCES* directory structure shown in Figure 22, they can use it to build any xlsxPCES model by following these steps:
+
+1. Ensure that environment variable \$xlsxPCES is the path to the *xlsxPCES* directory.
+
+2. Create a model development directory somewhere, call it *modelDevelop*, and create within it a subdirectory *yamlDir*.
+
+3. Place the xlsx model in *modelDevelop*, say, *modelDevelop/model.xlsx* .
+
+4. Make a copy of *\$xlsxPCES/args-xlsx*, say, *modelDevelop/args-xlsx*.
+
+5. Modify *modelDevelop/args-xlsx* to contain
+
+   ```
+   -working ./working
+   -name modelName
+   -xlsx <modelDevelop>/embedded.xlsx
+   -csvDir ./csvDir
+   -yamlDir <modelDevelop>/yamlDir
+   -templateDir ./templateDir
+   -descDir ./descDir
+   ```
+
+   where now 'modelName' is whatever name is chosen for the model, and \<modelDevelop\> represents the path to the *modelDevelop* directory.
+
+   Finally, from within *modelDevelop* execute
+
+   ```
+   % python $xlsxPCES/runConvert.py -is args-xlsx
+   ```
+
+   The files placed in *modelDevelop/yamlDir* can be moved (or sourced from here) as the input directory for **pces** executions.
+
+
+
+
+
+
+
+
+
+ 
