@@ -1,6 +1,6 @@
 ### Building a PCES model 
 
-(last update May 10, 2025)
+(last update May 17, 2025)
 
 #### xlsxPCES
 
@@ -309,7 +309,7 @@ The rationale for this method to have the cyptographic specifics of crypto opera
 
 Figure 16 shows the remaining columns for this example's srvRsp function initialization.  The main point is to illustrate the use of a wild card (*) in the message type.   Had we left both msg2mc columns empty the default message code would have been assumed;  however, with the wildcard we could have (but didn't) made a different method code the default.
 
-<img src="/Users/nicol/Dropbox/github-repos/pcesbld/docs/images/srvRsp-cp-sheet-right.png" alt="srvRsp-cp-sheet-right" style="zoom:50%;" />
+<img src="./images/srvRsp-cp-sheet-right.png" alt="srvRsp-cp-sheet-right" style="zoom:50%;" />
 
 ***Figure 16: Rightmost columns of srvRsp function initialization***
 
@@ -351,7 +351,7 @@ Each execution of the **pces** simulator uses a fixed set of experimental parame
 
 Figure 19 below illustrates a sheet we use with the running example.
 
-<img src="/Users/nicol/Dropbox/github-repos/pcesbld/docs/images/experiments-sheet.png" alt="experiments-sheet" style="zoom:50%;" />
+<img src="./images/experiments-sheet.png" alt="experiments-sheet" style="zoom:50%;" />
 
 
 
