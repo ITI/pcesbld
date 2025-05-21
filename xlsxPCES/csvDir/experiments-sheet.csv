@@ -1,0 +1,19 @@
+Unnamed: 0,Unnamed: 1,Unnamed: 2,Unnamed: 3
+Experiments,,,
+#name,"$Lambda,topo","$mode,topo","$msrLambda, cp"
+exp-0,10,inelastic-flow,625
+exp-1,10,pckt,625
+exp-2,20,inelastic-flow,625
+exp-3,20,pckt,625
+exp-4,30,inelastic-flow,625
+exp-5,30,pckt,625
+exp-6,40,inelastic-flow,625
+exp-7,40,pckt,625
+exp-8,50,inelastic-flow,625
+exp-9,50,pckt,625
+exp-10,60,inelastic-flow,625
+exp-11,60,pckt,625
+exp-12,70,inelastic-flow,625
+exp-13,70,pckt,625
+exp-14,80,inelastic-flow,625
+exp-15,80,pckt,625

@@ -1,0 +1,11 @@
+dictname: exampleName
+map:
+  reqLoop:
+    funcmap:
+      endMeasure: client,10
+      endThread: client,10
+      request: client,10
+      response: server,10
+      startMeasure: client,10
+      startThread: client,10
+    patternname: reqLoop

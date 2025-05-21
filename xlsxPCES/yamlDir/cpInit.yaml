@@ -1,0 +1,26 @@
+dictname: exampleName
+initlist:
+  reqLoop:
+    cfg:
+      endMeasure: '{"msrname": "loop", "msrop": "end", "trace": 0, "msg2mc": {}, "groups":
+        ["EndMsr"]}'
+      endThread: '{"trace": 0, "msg2mc": {}, "data": "", "groups": []}'
+      request: '{"trace": 0, "srvCP": "reqLoop", "srvLabel": "response", "srvOp":
+        "processReq", "rspOp": "", "msg2mc": {}, "msg2msg": {"measure": ""}, "groups":
+        []}'
+      response: '{"timingcode": {"processReq": "processReq"}, "directprefix": [],
+        "trace": 0, "msg2mc": {}, "groups": []}'
+      startMeasure: '{"msrname": "loop", "msrop": "start", "trace": 0, "msg2mc": {},
+        "groups": []}'
+      startThread: '{"pcktlen": 900, "msglen": 1000, "msgtype": "measure", "starttime":
+        0.0, "data": "str($msrLambda)", "groups": [], "trace": 0}'
+    cptype: reqLoop
+    msgs:
+    - ispckt: true
+      msgtype: measure
+    - ispckt: true
+      msgtype: requestService
+    - ispckt: true
+      msgtype: end
+    name: reqLoop
+    useyaml: true

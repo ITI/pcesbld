@@ -1,0 +1,17 @@
+Unnamed: 0,Unnamed: 1,Unnamed: 2,Unnamed: 3
+,,,
+Mapping,,,
+### CmpPtnName,func label,endpoint,sched priority
+reqLoop,startThread,client,10
+reqLoop,startMeasure,client,10
+reqLoop,request,client,10
+reqLoop,response,server,10
+reqLoop,endMeasure,client,10
+reqLoop,endThread,client,10
+,,,
+,,,
+### color key,,,
+### Category label,,,
+### singleton descriptor ,,,
+### list descriptor,,,
+### dict descriptor,,,

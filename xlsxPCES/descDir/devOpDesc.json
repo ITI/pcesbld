@@ -1,0 +1,1 @@
+[{"devtype": "switch", "name": "hubWest", "model": "Netgear GS324T", "opdict": {"client": "outboundClient"}}, {"devtype": "switch", "name": "hubEast", "model": "Netgear GS324T", "opdict": {"rtr": "checkSrc"}}]

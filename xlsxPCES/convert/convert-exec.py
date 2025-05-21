@@ -388,7 +388,7 @@ def main():
 
     timesByOp = {}
     cpuOps = {}
-    modelDict = {'CPU': [], 'Accelerator': [], 'Switch': [], 'Router': []}
+    modelDict = {'CPU': {}, 'Accelerator': {}, 'Switch': {}, 'Router': {}}
 
     for entry in execTimeList:
         cpuOpsKey = entry.ptype+"%"+entry.model
@@ -405,10 +405,13 @@ def main():
 
         try:
             if entry.model not in modelDict[entry.ptype]:
-                modelDict[entry.ptype].append( entry.model)
+                modelDict[entry.ptype][entry.model] = [] 
         except:
             print("oops")
             exit(1)
+
+        if entry.op not in modelDict[entry.ptype][entry.model]:
+            modelDict[entry.ptype][entry.model].append(entry.op)
 
     tableDict = {'listname' : sysname, 'times': timesByOp }
     with open(func_exec_output_file, 'w') as wf:
@@ -430,7 +433,10 @@ def main():
         timesByOp[entry.op].append( entry.repDict() )
 
         if entry.model not in modelDict[entry.devtype]:
-            modelDict[entry.devtype].append( entry.model )
+            modelDict[entry.devtype][entry.model] = [] 
+
+        if entry.op not in modelDict[entry.devtype][entry.model]:      
+            modelDict[entry.devtype][entry.model].append(entry.op) 
 
     tableDict = {'listname': sysname, 'times': timesByOp }
     with open(dev_exec_output_file, 'w') as wf:

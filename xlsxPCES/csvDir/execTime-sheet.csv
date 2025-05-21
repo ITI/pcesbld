@@ -1,0 +1,28 @@
+Unnamed: 0,Unnamed: 1,Unnamed: 2,Unnamed: 3,Unnamed: 4
+CPU Entries,,,,
+### model,operation,pcktlen,exec time,
+AMD EPYC 9534 64-Core Processor,processReq,1000,10,
+,,,,
+Accelerator Entries,,,,
+### model,operation,pcktlen,exec time,
+,,,,
+Router Entries,,,,
+### model,operation,pcktlen,exec time,bandwidth
+Cisco ASA 1,route,256,25,100
+Cisco ASA 1,route,1500,25,100
+,,,,
+,,,,
+Switch Entries,,,,
+### model,operation,pcktlen,exec time,bandwidth
+Netgear GS324T,switch,256,25,100
+Netgear GS324T,switch,1500,25,100
+Netgear GS324T,outboundClient,256,25,100
+Netgear GS324T,outboundClient,1500,25,100
+Netgear GS324T,checkSrc,256,100,100
+Netgear GS324T,checkSrc,1500,100,100
+,,,,
+### color key,,,,
+### Category label,,,,
+### singleton descriptor ,,,,
+### list descriptor,,,,
+### dict descriptor,,,,

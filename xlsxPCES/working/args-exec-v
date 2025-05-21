@@ -1,0 +1,9 @@
+-csvDir ./csvDir
+-yamlDir ./yamlDir
+-descDir ./descDir
+-name exampleName
+-csvIn execTime-sheet.csv
+-cpuOpsDescOut cpuOps.json
+-modelDescOut devModel.json
+-funcExecOut funcExec.yaml
+-devExecOut devExec.yaml

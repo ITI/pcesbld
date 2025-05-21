@@ -1,0 +1,241 @@
+endpts:
+- accel: {}
+  cores: 1
+  groups: []
+  interfaces:
+  - cable: intrfc@hubWest-client
+    carry: []
+    device: client
+    devtype: Endpt
+    faces: netWest
+    groups: []
+    mediatype: wired
+    name: intrfc@client-hubWest
+    wireless: []
+  model: AMD EPYC 9534 64-Core Processor
+  name: client
+- accel: {}
+  cores: 1
+  groups: []
+  interfaces:
+  - cable: intrfc@hubEast-server
+    carry: []
+    device: server
+    devtype: Endpt
+    faces: netEast
+    groups: []
+    mediatype: wired
+    name: intrfc@server-hubEast
+    wireless: []
+  model: AMD EPYC 9534 64-Core Processor
+  name: server
+- accel: {}
+  cores: 1
+  groups: []
+  interfaces:
+  - cable: intrfc@hubWest-WE_src
+    carry: []
+    device: WE_src
+    devtype: Endpt
+    faces: netWest
+    groups: []
+    mediatype: wired
+    name: intrfc@WE_src-hubWest
+    wireless: []
+  model: AMD EPYC 9534 64-Core Processor
+  name: WE_src
+- accel: {}
+  cores: 1
+  groups: []
+  interfaces:
+  - cable: intrfc@hubWest-EW_dst
+    carry: []
+    device: EW_dst
+    devtype: Endpt
+    faces: netWest
+    groups: []
+    mediatype: wired
+    name: intrfc@EW_dst-hubWest
+    wireless: []
+  model: AMD EPYC 9534 64-Core Processor
+  name: EW_dst
+- accel: {}
+  cores: 1
+  groups: []
+  interfaces:
+  - cable: intrfc@hubEast-EW_src
+    carry: []
+    device: EW_src
+    devtype: Endpt
+    faces: netEast
+    groups: []
+    mediatype: wired
+    name: intrfc@EW_src-hubEast
+    wireless: []
+  model: AMD EPYC 9534 64-Core Processor
+  name: EW_src
+- accel: {}
+  cores: 1
+  groups: []
+  interfaces:
+  - cable: intrfc@hubEast-WE_dst
+    carry: []
+    device: WE_dst
+    devtype: Endpt
+    faces: netEast
+    groups: []
+    mediatype: wired
+    name: intrfc@WE_dst-hubEast
+    wireless: []
+  model: AMD EPYC 9534 64-Core Processor
+  name: WE_dst
+flows:
+- dstdev: WE_dst
+  framesize: 1000
+  groups: []
+  mode: str($mode)
+  name: flowWE
+  reqrate: float($Lambda)
+  srcdev: WE_src
+- dstdev: EW_dst
+  framesize: 1000
+  groups: []
+  mode: str($mode)
+  name: flowEW
+  reqrate: float($Lambda)
+  srcdev: EW_src
+name: exampleName
+networks:
+- endpts:
+  - WE_dst
+  - server
+  - EW_src
+  groups: []
+  mediatype: wired
+  name: netEast
+  netscale: LAN
+  routers:
+  - rtr
+  switches:
+  - hubEast
+- endpts:
+  - WE_src
+  - EW_dst
+  - client
+  groups: []
+  mediatype: wired
+  name: netWest
+  netscale: LAN
+  routers:
+  - rtr
+  switches:
+  - hubWest
+routers:
+- groups: []
+  interfaces:
+  - cable: intrfc@hubWest-rtr
+    carry: []
+    device: rtr
+    devtype: Router
+    faces: netWest
+    groups: []
+    mediatype: wired
+    name: intrfc@rtr-hubWest
+    wireless: []
+  - cable: intrfc@hubEast-rtr
+    carry: []
+    device: rtr
+    devtype: Router
+    faces: netEast
+    groups: []
+    mediatype: wired
+    name: intrfc@rtr-hubEast
+    wireless: []
+  model: Cisco ASA 1
+  name: rtr
+  opdict: {}
+switches:
+- groups: []
+  interfaces:
+  - cable: intrfc@WE_src-hubWest
+    carry: []
+    device: hubWest
+    devtype: Switch
+    faces: netWest
+    groups: []
+    mediatype: wired
+    name: intrfc@hubWest-WE_src
+    wireless: []
+  - cable: intrfc@EW_dst-hubWest
+    carry: []
+    device: hubWest
+    devtype: Switch
+    faces: netWest
+    groups: []
+    mediatype: wired
+    name: intrfc@hubWest-EW_dst
+    wireless: []
+  - cable: intrfc@client-hubWest
+    carry: []
+    device: hubWest
+    devtype: Switch
+    faces: netWest
+    groups: []
+    mediatype: wired
+    name: intrfc@hubWest-client
+    wireless: []
+  - cable: intrfc@rtr-hubWest
+    carry: []
+    device: hubWest
+    devtype: Switch
+    faces: netWest
+    groups: []
+    mediatype: wired
+    name: intrfc@hubWest-rtr
+    wireless: []
+  model: Netgear GS324T
+  name: hubWest
+  opdict:
+    client: outboundClient
+- groups: []
+  interfaces:
+  - cable: intrfc@rtr-hubEast
+    carry: []
+    device: hubEast
+    devtype: Switch
+    faces: netEast
+    groups: []
+    mediatype: wired
+    name: intrfc@hubEast-rtr
+    wireless: []
+  - cable: intrfc@WE_dst-hubEast
+    carry: []
+    device: hubEast
+    devtype: Switch
+    faces: netEast
+    groups: []
+    mediatype: wired
+    name: intrfc@hubEast-WE_dst
+    wireless: []
+  - cable: intrfc@EW_src-hubEast
+    carry: []
+    device: hubEast
+    devtype: Switch
+    faces: netEast
+    groups: []
+    mediatype: wired
+    name: intrfc@hubEast-EW_src
+    wireless: []
+  - cable: intrfc@server-hubEast
+    carry: []
+    device: hubEast
+    devtype: Switch
+    faces: netEast
+    groups: []
+    mediatype: wired
+    name: intrfc@hubEast-server
+    wireless: []
+  model: Netgear GS324T
+  name: hubEast
+  opdict:
+    rtr: checkSrc

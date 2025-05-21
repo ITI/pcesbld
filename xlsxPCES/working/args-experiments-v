@@ -1,0 +1,6 @@
+-csvDir ./csvDir
+-yamlDir ./yamlDir
+-descDir ./descDir
+-name exampleName
+-csvIn experiments-sheet.csv
+-experiments experiments.yaml

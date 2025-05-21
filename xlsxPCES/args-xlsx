@@ -1,6 +1,6 @@
 -working ./working
 -name exampleName
--xlsx examples/flows.xlsx
+-xlsx examples/flows-meta.xlsx
 -convertDir ./convert
 -csvDir ./csvDir
 -yamlDir ./yamlDir 

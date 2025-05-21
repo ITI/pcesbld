@@ -1,0 +1,40 @@
+patterns:
+  reqLoop:
+    cptype: simple
+    edges:
+    - dstcp: reqLoop
+      dstlabel: startMeasure
+      msgtype: measure
+      srccp: reqLoop
+      srclabel: startThread
+    - dstcp: reqLoop
+      dstlabel: request
+      msgtype: requestService
+      srccp: reqLoop
+      srclabel: startMeasure
+    - dstcp: reqLoop
+      dstlabel: endMeasure
+      msgtype: measure
+      srccp: reqLoop
+      srclabel: request
+    - dstcp: reqLoop
+      dstlabel: endThread
+      msgtype: end
+      srccp: reqLoop
+      srclabel: endMeasure
+    extedges: []
+    funcs:
+    - class: start
+      label: startThread
+    - class: measure
+      label: startMeasure
+    - class: srvReq
+      label: request
+    - class: srvRsp
+      label: response
+    - class: measure
+      label: endMeasure
+    - class: finish
+      label: endThread
+    name: reqLoop
+    services: {}

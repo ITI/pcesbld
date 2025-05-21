@@ -1,0 +1,56 @@
+expname: exampleName
+parameters:
+- attributes:
+  - attrbname: name
+    attrbvalue: netEast
+  param: latency
+  paramObj: Network
+  value: 0.001
+- attributes:
+  - attrbname: name
+    attrbvalue: netEast
+  param: bandwidth
+  paramObj: Network
+  value: 2000.0
+- attributes:
+  - attrbname: name
+    attrbvalue: netEast
+  param: capacity
+  paramObj: Network
+  value: 2000.0
+- attributes:
+  - attrbname: name
+    attrbvalue: netWest
+  param: latency
+  paramObj: Network
+  value: 0.001
+- attributes:
+  - attrbname: name
+    attrbvalue: netWest
+  param: bandwidth
+  paramObj: Network
+  value: 2000.0
+- attributes:
+  - attrbname: name
+    attrbvalue: netWest
+  param: capacity
+  paramObj: Network
+  value: 2000.0
+- attributes:
+  - attrbname: '*'
+    attrbvalue: 1
+  param: interruptdelay
+  paramObj: Endpoint
+  value: '0'
+- attributes:
+  - attrbname: '*'
+    attrbvalue: 1
+  param: latency
+  paramObj: Interface
+  value: 0.0
+- attributes:
+  - attrbname: '*'
+    attrbvalue: 1
+  param: bandwidth
+  paramObj: Interface
+  value: '100'

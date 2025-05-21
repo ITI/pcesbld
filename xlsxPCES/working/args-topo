@@ -1,0 +1,10 @@
+-csvDir ./csvDir
+-yamlDir ./yamlDir
+-descDir ./descDir
+-name exampleName
+-validate
+-csvIn topo-sheet.csv
+-topoOut topo.yaml
+-modelDescIn devModel.json
+-cpuDescOut cpuDesc.json
+-attrbDescOut attrb.json

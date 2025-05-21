@@ -40,6 +40,9 @@ devModelIdx = 1
 devGroupIdx = 2
 devPeerIdx = 3
 devFacesIdx = 4
+devOpSrcIdx = 5
+devOpIdx = 6
+
 
 endptNameIdx = 0
 endptModelIdx = 1
@@ -145,6 +148,7 @@ class Switch:
         self.faces = []
         self.intrfcs = []
         self.netRef = {}
+        self.opdict = {}
         self.wirelessIntrfc = {}
 
         switchNames[self.name] = self 
@@ -184,6 +188,10 @@ class Switch:
         if peerName not in self.peers:
             self.peers.append(peerName)
 
+    def addOp(self, src, op):
+        if src not in self.opdict:
+            self.opdict[src] = op
+
     def addNetwork(self, netName):
         if netName not in self.faces:
             self.faces.append(netName)
@@ -212,6 +220,12 @@ class Switch:
             msg = 'switch {} model {} not recognized from timing file'.format(self.name, self.model)
             msgs.append(msg)
 
+        if len(modelDict) > 0 and len(self.model) > 0 and self.model in modelDict['Switch']:
+            for src, op in self.opdict.items():
+                if op not in modelDict['Switch'][self.model]:
+                    msg = 'switch {} model {} operation {} not found in execution time table'.format(self.name, self.model, op)
+                    msgs.append(msg)
+
         for peer in self.peers:
             if not validDev(peer):
                 msg = 'switch {} declares unrecognized peer {}'.format(self.name, peer)
@@ -221,6 +235,12 @@ class Switch:
             if net not in networkNames:
                 msg = 'switch {} declares facing unknown network {}'.format(self.name, net)
                 msgs.append(msg)
+
+        for opSrc in self.opdict:
+            # ensure the opSrc is a peer
+            if opSrc not in self.peers:
+                msg = 'switch {} opdict key {} needs to be a peer'.format(self.name, opSrc)
+                msgs.append(msg)
         
         if len(msgs) > 0:
             return False, '\n'.join(msgs)
@@ -228,7 +248,8 @@ class Switch:
         return True, ""
 
     def repDict(self):
-        rd = {'name': self.name, 'groups': self.groups, 'model': self.model, 'interfaces': self.intrfcs}
+        rd = {'name': self.name, 'groups': self.groups, 'model': self.model, 'interfaces': self.intrfcs,
+            'opdict': self.opdict}
         return rd
 
     def attrbDict(self):
@@ -245,6 +266,7 @@ class Router:
         self.faces = []
         self.intrfcs = []
         self.netRef = {}
+        self.opdict = {}
 
         routerNames[self.name] = self
         devNames[self.name] = self
@@ -256,6 +278,10 @@ class Router:
     def addPeer(self, peerName):
         if peerName not in self.peers:
             self.peers.append(peerName)
+
+    def addOp(self, src, op):
+        if src not in self.opdict:
+            self.opdict[src] = op
 
     def addNetwork(self, netName):
         if netName not in self.faces:
@@ -275,6 +301,12 @@ class Router:
         if len(modelDict) > 0 and len(self.model) > 0 and self.model not in modelDict['Router']:
             msg = 'router {} model {} not recognized from devDesc file'.format(self.name, self.model)
 
+        if len(modelDict) > 0 and len(self.model) > 0 and self.model in modelDict['Router']:
+            for src, op in self.opdict.items():
+                if op not in modelDict['Router'][self.model]:
+                    msg = 'router {} model {} op {} does not appear in execution time table'.format(self.name, self.model, op)
+                    msgs.append(msg)
+
         for peer in self.peers:
             if not validDev(peer):
                 msg = 'router {} declares unrecognized peer {}'.format(self.name, peer)
@@ -285,13 +317,20 @@ class Router:
                 msg = 'router {} declares facing unknown network {}'.format(self.name, net)
                 msgs.append(msg)
         
+        for opSrc in self.opdict:
+            # ensure the opSrc is a peer
+            if opSrc not in self.peers:
+                msg = 'router {} opdict key {} needs to be a peer'.format(self.name, opSrc)
+                msgs.append(msg)
+        
         if len(msgs) > 0:
             return False, '\n'.join(msgs)
 
         return True, ""
 
     def repDict(self):
-        rd = {'name': self.name, 'groups': self.groups, 'model': self.model, 'interfaces': self.intrfcs}
+        rd = {'name': self.name, 'groups': self.groups, 'model': self.model, 
+            'interfaces': self.intrfcs, 'opdict': self.opdict}
         return rd
 
     def attrbDict(self):
@@ -1106,9 +1145,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(u'-name', metavar = u'name of system', dest=u'name', required=True)
     parser.add_argument(u'-validate', action='store_true', required=False)
-    parser.add_argument(u'-csvDir', metavar = u'wiredory where csv file is found', dest=u'csvDir', required=True)
-    parser.add_argument(u'-yamlDir', metavar = u'wiredory where results are stored', dest=u'yamlDir', required=True)
-    parser.add_argument(u'-descDir', metavar = u'wiredory where auxilary descriptions are stored', 
+    parser.add_argument(u'-csvDir', metavar = u'directory where csv file is found', dest=u'csvDir', required=True)
+    parser.add_argument(u'-yamlDir', metavar = u'directory where results are stored', dest=u'yamlDir', required=True)
+    parser.add_argument(u'-descDir', metavar = u'directory where auxilary descriptions are stored', 
             dest=u'descDir', required=True)
 
     # csv input file
@@ -1232,7 +1271,7 @@ def main():
             elif matchCode == "Switches": 
                     networks = False
                     switches = True
-                    maxCols = 5
+                    maxCols = 7
                     routers  = False
                     endpoints = False
                     wiredConn = False
@@ -1244,7 +1283,7 @@ def main():
                     networks = False
                     switches = False
                     routers  = True
-                    maxCols = 5
+                    maxCols = 7
                     endpoints = False
                     wiredConn = False
                     wirelessConn = False
@@ -1347,7 +1386,11 @@ def main():
                 
                 if len(row[devFacesIdx]) > 0:
                     net = row[devFacesIdx]
-                
+               
+                if len(row[devOpIdx]) > 0:
+                    opSrc = row[devOpSrcIdx]
+                    op    = row[devOpIdx]
+ 
                 if len(row[devNameIdx]) > 0:
                     switchList.append(Switch(row))
             
@@ -1363,6 +1406,11 @@ def main():
                     switchList[-1].addNetwork(net)
                     group = ''
 
+                if len(row[devOpIdx]) > 0 or len(row[devOpSrcIdx]):
+                    switchList[-1].addOp(opSrc, op)
+                    opSrc = ''
+                    op = ''
+
                 continue
 
             if routers:
@@ -1375,6 +1423,10 @@ def main():
                 if len(row[devFacesIdx]) > 0:
                     net = row[devFacesIdx]
                 
+                if len(row[devOpIdx]) > 0:
+                    opSrc = row[devOpSrcIdx]
+                    op    = row[devOpIdx]
+ 
                 if len(row[devNameIdx]) > 0:
                     routerList.append(Router(row))
 
@@ -1389,6 +1441,11 @@ def main():
                 if len(row[devFacesIdx]) > 0:
                     routerList[-1].addNetwork(net)
                     net = ''
+
+                if len(row[devOpIdx]) > 0 or len(row[devOpSrcIdx]):
+                    switchList[-1].addOp(opSrc, op)
+                    opSrc = ''
+                    op = ''
 
                 continue
 
@@ -1521,6 +1578,15 @@ def main():
 
     with open(cpuDescOut_file, 'w') as wf:
         json.dump(desc, wf)
+
+    opDictList = []
+    for switchDict in switchList:
+        if len(switchDict.opdict) > 0:
+            opDictList.append({'devtype':'switch', 'name':switchDict.name, 'model':switchDict.model, 'opdict':switchDict.opdict})
+
+    for routerDict in routerList:
+        if len(routerDict.opdict) > 0:
+            opDictList.append({'devtype':'router', 'name':routerDict.name, 'model':routerDict.model, 'opdict':routerDict.opdict})
 
     # create the objAttrib dictionary
     ad = {'Network': [], 'Switch': [], 'Router' :[], 'Endpoint': [], 'Flow': [], 'Interface' :[]}
