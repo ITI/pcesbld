@@ -207,7 +207,6 @@ class Switch:
         self.intrfcs.append(intrfcDict)
 
     def validate(self):
-
         if not validateFlag:
             return True, ""
 
@@ -1184,8 +1183,8 @@ def main():
     yamlDir = args.yamlDir
     descDir = args.descDir
 
-    validateFlag = (args.validate is not None)
-
+    validateFlag = args.validate
+ 
     # make sure we have access to these wiredories
     test_dirs = (csvDir, yamlDir, descDir)
 

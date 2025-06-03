@@ -1052,7 +1052,7 @@ class ProcessPckt:
     def addMsg2MC(self, msgType, mc):
         self.init['msg2mc'][msgType] = mc
 
-    def addMsg2sg(self, msgTypeIn, msgTypeOut):
+    def addMsgM2sg(self, msgTypeIn, msgTypeOut):
         self.init['msg2msg'][msgTypeIn] = msgTypeOut
 
     def repTC(self):
