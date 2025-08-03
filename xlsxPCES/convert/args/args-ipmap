@@ -1,0 +1,5 @@
+-name embed
+-csvIn ipmap-sheet.csv
+-ip ipmap.yaml
+-attrbDescIn attrb.json
+-feedDesc feedDesc.json

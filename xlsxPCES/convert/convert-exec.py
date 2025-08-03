@@ -37,7 +37,7 @@ class ExecTimeEntry:
         self.op = row[operationIdx]
         self.pcktLen = row[pcktLenIdx]
         self.execTime = row[execTimeIdx]
-
+    
     def validate(self):
         if not validateFlag:
             return True, ""
@@ -76,7 +76,7 @@ class ExecTimeEntry:
             rd['exectime'] = float(self.execTime)/1e6
         else:
             rd['exectime'] = varFloatScale(self.execTime,'/1e6')       
-        
+
         return rd
 
 devOps = ('route','switch')
@@ -281,7 +281,6 @@ def main():
         exit(1)
 
     csv_input_file = os.path.join(csvDir, args.csv_input)
-
     func_exec_output_file = os.path.join(yamlDir, args.funcExec_output)
 
     dev_exec_output_file = os.path.join(yamlDir, args.devExec_output)

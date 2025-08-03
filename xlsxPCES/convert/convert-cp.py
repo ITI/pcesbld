@@ -7,7 +7,7 @@ import json
 import sys
 import os
 import argparse
-
+import ipaddress
 
 # Globals
 funcInstByName = {}
@@ -21,6 +21,7 @@ cpFuncs = {}
 cpInstDict = {}
 cpMC = {}
 edgeMsg = {}
+feedDesc = {}
 
 mcodes = {"processPckt":["default","processOp"], "finish":["default","finishOp"], "measure":["default","measure"], 
     "srvRsp":["default"], "srvReq":["default", "request","return"], "transfer":["default"], "authReq":["default"], 
@@ -39,7 +40,7 @@ connectionList = []
 
 cmpptnDesc = {}
 
-pcesFuncClasses = ('srvReq', 'srvRsp', 'measure', 'start', 'finish', 'bckgrndLd', 
+pcesFuncClasses = ('srvReq', 'srvRsp', 'measure', 'start', 'feed', 'finish', 'bckgrndLd', 
                         'processPckt', 'transfer', 'streamsrc', 'streamdst')
 
 TimingCodeFuncs = []
@@ -56,6 +57,7 @@ strmSrcIdx['reqrate'] = len(strmSrcIdx)
 strmSrcIdx['msgtype'] = len(strmSrcIdx)
 strmSrcIdx['msglen'] = len(strmSrcIdx)
 strmSrcIdx['elastic'] = len(strmSrcIdx)
+strmSrcIdx['feed'] = len(strmSrcIdx)
 strmSrcIdx['start'] = len(strmSrcIdx)
 strmSrcIdx['volume'] = len(strmSrcIdx)
 strmSrcIdx['burstdist'] = len(strmSrcIdx)
@@ -82,7 +84,8 @@ initRowLen = {}
 initRowLen['srvReq'] = 14
 initRowLen['srvRsp'] = 10
 initRowLen['measure'] = 9
-initRowLen['start'] = 10
+initRowLen['start'] = 11
+initRowLen['feed'] = 8
 initRowLen['finish'] = 8
 initRowLen['processPckt'] = 12
 initRowLen['transfer'] = 11
@@ -98,7 +101,7 @@ class FuncEdge:
 class FuncInst:
     def __init__(self, cmpPtnName, className, funcName):
         self.cmpPtnName = cmpPtnName
-        self.className = className
+        self.fnclassName = className
         self.funcName  = funcName
         self.inEdges = []
         self.outEdges = []
@@ -111,7 +114,7 @@ class FuncInst:
 
     def msgOnInEdge(self, msgType):
         # response functions can be called without an in edge
-        if self.className == 'srvRsp':
+        if self.fnclassName == 'srvRsp':
             return True, ""
 
         for edge in self.inEdges:
@@ -124,9 +127,9 @@ class FuncInst:
             return True, ""
 
         # no validation to be done on function name 
-        if self.className in pcesFuncClasses:
+        if self.fnclassName in pcesFuncClasses:
             return True, ""
-        return False, 'in funcInst.validate function class "{}" not observed in pces'.format(self.className)
+        return False, 'in funcInst.validate function class "{}" not observed in pces'.format(self.fnclassName)
   
 class CmpPtnInst:
     def __init__(self, name, cpType):
@@ -221,7 +224,7 @@ class CmpPtnInst:
                     'extedges':[], 'services': {}}
 
         for func in self.funcInstList:
-            fd = {'class': func.className, 'label': func.funcName}
+            fd = {'class': func.fnclassName, 'label': func.funcName}
             sd['funcs'].append(fd)
 
         for key, value in self.services.items():
@@ -336,6 +339,7 @@ class Connection():
 
 class SrvReq:
     def __init__(self, row):
+        self.fnclass = 'srvreq'
         self.cmpptn = row[1]
         self.label = row[2]
         self.init = {}
@@ -371,7 +375,7 @@ class SrvReq:
             msg = 'SrvReq trace parameter "{}" needs to be a boolean'.format(self.init['trace'])
             msgs.append(msg)
 
-        ok, msg = validateFuncInCP(self.cmpptn, self.label, "srvReq init validation")
+        ok, msg = validateFuncInCP(self.cmpptn, self.label, self.fnclass, "srvReq init validation")
         if not ok:
             msgs.append(msg) 
 
@@ -383,7 +387,7 @@ class SrvReq:
             for edge in cpfi.outEdges:
                 xcpi = cmpPtnInstDict[edge.cp]
                 xcpfi = xcpi.getFuncInst(edge.label)
-                if xcpfi.className == 'srvRsp':
+                if xcpfi.fnclassName == 'srvRsp':
                     srvRspFound = edge
                     break
 
@@ -453,6 +457,7 @@ class SrvReq:
 
 class SrvRsp:
     def __init__(self, row):
+        self.fnclass = 'srvrsp'
         self.cmpptn = row[1]
         self.label = row[2]
         self.init = {'timingcode': {}, 'directprefix':[], 'trace': row[6], 'msg2mc':{}, 'groups':[] }
@@ -490,7 +495,7 @@ class SrvRsp:
             msg = 'Trace in SrvRsp init not a Bool'.format(self.init['trace'])
             msgs.append(msg) 
 
-        ok, msg = validateFuncInCP(self.cmpptn, self.label,"srvRsp init validation")
+        ok, msg = validateFuncInCP(self.cmpptn, self.label, self.fnclass, "srvRsp init validation")
         if not ok:
             msgs.append(msg)
 
@@ -511,7 +516,7 @@ class SrvRsp:
                     msg = 'srvRsp init cites function ({},{}) that does not exist'.format(self.cmpptn, self.label)
                     msgs.append(msg)
                 else: 
-                    if not (cpfi.className == 'srvRsp' and mc in cpi.services):
+                    if not (cpfi.fnclassName == 'srvRsp' and mc in cpi.services):
                         ok, msg = cpfi.msgOnInEdge(mc)
                         if not ok:
                             msgs.append(msg)
@@ -539,6 +544,7 @@ class SrvRsp:
 
 class Measure:
     def __init__(self, row):
+        self.fnclass = 'measure'
         self.cmpptn = row[1]
         self.label = row[2]
         self.init = {'msrname': row[3], 'msrop': row[4], 'trace': row[5], 'msg2mc': {}, 'groups':[]}
@@ -564,7 +570,7 @@ class Measure:
             msgs.append(msg)
 
 
-        ok, msg = validateFuncInCP(self.cmpptn,  self.label, "measure init validation")
+        ok, msg = validateFuncInCP(self.cmpptn,  self.label, self.fnclass, "measure init validation")
         if not ok:
             msgs.append(msg)
 
@@ -580,13 +586,106 @@ class Measure:
         self.init['trace'] = cnvrtBool(self.init['trace'])
         return self.init
 
+def is_legal_ip_address(ip_string):
+  """
+  Tests if a string represents a legal IPv4 or IPv6 address.
+
+  Args:
+    ip_string: The string to be tested.
+
+  Returns:
+    True if the string is a legal IP address, False otherwise.
+  """
+  try:
+    ipaddress.ip_address(ip_string)
+    return True
+  except ValueError:
+    return False
+
+
 class Start:
     def __init__(self, row):
+        self.fnclass = 'start'
         self.cmpptn = row[1]
         self.label = row[2]
+
         self.init = {'pcktlen': row[3], 'msglen': row[4], 'msgtype': row[5],
-                         'starttime': row[6], 'data': row[7], 
-                            'groups':[], 'trace': row[8]} 
+                             'starttime': row[6], 'data': row[7], 
+                                'groups':[], 'trace': row[8]}
+
+    def addGroup(self, groupName):
+        if 'groups' not in self.init:
+            self.init['groups'] = []
+        if groupName not in self.init['groups']:
+            self.init['groups'].append(groupName)
+
+    def validate(self):
+        if not validateFlag:
+            return True, ""
+
+        msgs = [] 
+        if not validateBool(self.init['trace']):
+            msg = 'Start initialization trace parameter "{}" needs to be boolean'.format(self.init['trace'])
+            msgs.append(msg)           
+   
+        if self.cmpptn not in cmpPtnInstDict:
+            msg = 'cp name "{}" in Start init not recognized'.format(self.cmpptn)
+            msgs.append(msg) 
+        else: 
+            ok, msg = validateFuncInCP(self.cmpptn, self.label, self.fnclass, "start init validation")
+            if not ok:
+                msgs.append(msg)
+
+        # check lengths of pckt and msg
+        if (not (0 <= int(self.init['pcktlen']) < 1560) or \
+                not (0 <= int(self.init['msglen']) < 1560) or \
+                not (int(self.init['pcktlen']) <= int(self.init['msglen']))) :
+
+            msg = 'initial pckt or msg length size problem'
+            msgs.append(msg)
+
+        try:
+            starttime = float(self.init['starttime'])
+        except:
+            msg = 'start function gives non floating point start time {}'.format(self.init['starttime'])
+            msgs.append(msg)
+
+        if len(msgs) > 0:
+            return False, '\n'.join(msgs)
+
+        return True, ""
+
+    def serializeDict(self):
+        self.init['trace'] = cnvrtBool(self.init['trace'])
+
+        if isinstance(self.init['starttime'], str) and self.init['starttime'].find('$') == -1:
+            self.init['starttime'] = float(self.init['starttime'])
+        if isinstance(self.init['pcktlen'], str) and self.init['pcktlen'].find('$') == -1:
+            self.init['pcktlen'] = int(self.init['pcktlen'])
+        if isinstance(self.init['msglen'], str) and self.init['msglen'].find('$') == -1:
+            self.init['msglen'] = int(self.init['msglen'])
+
+        if 'data' in self.init:
+            if self.init['data'].startswith('float('):
+                self.init['data'] = self.init['data'].replace('float(','str(')
+            elif self.init['data'].startswith('int('):
+                self.init['data'] = self.init['data'].replace('int(','str(')
+            else:
+                self.init['data'] = self.init['data'].replace('"','')
+                self.init['data'] = str(self.init['data'])
+
+        self.init['data'] = str(self.init['data'])
+        return self.init
+
+class Feed:
+    def __init__(self, row):
+        self.fnclass = 'feed'
+        self.cmpptn = row[1]
+        self.label = row[2]
+        self.ip = row[3]
+        
+        self.init = {'ip': self.ip, 'msgtype': row[4], 'data': row[5], 
+             'groups':[], 'trace': row[6]}
 
     def addGroup(self, groupName):
         if 'groups' not in self.init:
@@ -599,42 +698,40 @@ class Start:
             return True, ""
  
         msgs = []
-        msg = 'Start initialization starttime parameter "{}" needs to be non-negative float'.format(self.init['starttime'])
-        if not self.init['starttime'].isnumeric():  
-            msgs.append(msg)
-        else:   
-            starttime = float(self.init['starttime'])
-            if starttime < 0.0:
-                msgs.append(msg)
-        
+
         if not validateBool(self.init['trace']):
             msg = 'Start initialization trace parameter "{}" needs to be boolean'.format(self.init['trace'])
             msgs.append(msg)           
-
    
         if self.cmpptn not in cmpPtnInstDict:
-            msg = 'cp name "{}" in Finish init not recognized'.format(self.cmpptn)
+            msg = 'cp name "{}" in Feed init not recognized'.format(self.cmpptn)
             msgs.append(msg) 
         else: 
-            ok, msg = validateFuncInCP(self.cmpptn, self.label,"finish init validation")
+            ok, msg = validateFuncInCP(self.cmpptn, self.label, self.fnclass, "feed init validation")
             if not ok:
                 msgs.append(msg)
 
-        # check lengths of pckt and msg
-        if validateFlag and (not (0 <= int(self.init['pcktlen']) < 1560) or \
-                not (0 <= int(self.init['msglen']) < 1560) or \
-                not (int(self.init['pcktlen']) <= int(self.init['msglen']))) :
-
-            msg = 'initial pckt or msg length size problem'
+        if self.ip.find(':') == -1:
+            msg = 'Start feed description {} not in format IP:port'.format(self.ip)
             msgs.append(msg)
-
-
-        if validateFlag:
-            try:
-                starttime = float(self.init['starttime'])
-            except:
-                msg = 'start function gives non floating point start time {}'.format(self.init['starttime'])
+        else: 
+            pieces = self.ip.split(':')
+            if len(pieces) != 2:
+                msg = 'Start feed description {} not in format FeedName,IP:port'.format(self.ip)
                 msgs.append(msg)
+            else:
+                if not is_legal_ip_address(pieces[0]):
+                    msg = 'Start feed description {} not in format FeedName,IP:port'.format(self.ip)
+                    msgs.append(msg)
+                elif pieces[1] != '*':
+                    try:
+                        portNum = int(pieces[1])
+                        if not portNum > 0:
+                            msg = 'Start feed description {} needs positive port number'.format(self.ip)
+                            msgs.append(msg)
+                    except:
+                        msg = 'Start feed description {} needs positive port number'.format(self.feed)
+                        msgs.append(msg)
 
         if len(msgs) > 0:
             return False, '\n'.join(msgs)
@@ -643,12 +740,7 @@ class Start:
 
     def serializeDict(self):
         self.init['trace'] = cnvrtBool(self.init['trace'])
-        if isinstance(self.init['starttime'], str) and self.init['starttime'].find('$') == -1:
-            self.init['starttime'] = float(self.init['starttime'])
-        if isinstance(self.init['pcktlen'], str) and self.init['pcktlen'].find('$') == -1:
-            self.init['pcktlen'] = int(self.init['pcktlen'])
-        if isinstance(self.init['msglen'], str) and self.init['msglen'].find('$') == -1:
-            self.init['msglen'] = int(self.init['msglen'])
+
         if 'data' in self.init:
             if self.init['data'].startswith('float('):
                 self.init['data'] = self.init['data'].replace('float(','str(')
@@ -658,29 +750,12 @@ class Start:
                 self.init['data'] = self.init['data'].replace('"','')
                 self.init['data'] = str(self.init['data'])
 
-        comment = '''
-        if len(self.init['data']) > 0:
-            data = self.init['data']
-            if data.startswith('int('):
-                data = data[4:]
-                end = data.find(')')
-                data = data[:end]
-            elif data.startswith('float('):
-                data = data[6:]
-                end = data.find(')')
-                data = data[:end]
-            elif data.startswith('bool('):
-                data = data[5:]
-                end = data.find(')')
-                data = data[:end]
-            data = "str("+data+")"
-            self.init['data'] = data 
-        '''
         self.init['data'] = str(self.init['data'])
         return self.init
 
 class Finish:
     def __init__(self, row):
+        self.fnclass  = 'finish'
         self.cmpptn = row[1]
         self.label = row[2]
         self.init = {'trace': row[3], 'msg2mc': {}, 'data': row[6], 'groups':[]} 
@@ -700,7 +775,7 @@ class Finish:
             exit(1)
     
         msgs = []
-        ok, msg = validateFuncInCP(self.cmpptn, self.label,"finish init validation")
+        ok, msg = validateFuncInCP(self.cmpptn, self.label, self.fnclass, "finish init validation")
         if not ok:
             msgs.append(msg)
 
@@ -723,6 +798,7 @@ class Finish:
 
 class StreamSrc:
     def __init__(self, row):
+        self.streamsrc = 'streamsrc'
         self.init = {'groups': []}
         for field, idx in strmSrcIdx.items():
             if idx==0:
@@ -749,7 +825,7 @@ class StreamSrc:
         cmpptn = self.init['srccmpptn']
         label  = self.init['srclabel']
 
-        ok, msg = validateFuncInCP(cmpptn, label, 'StreamSrc names unknown stream label "{}"'.format(label))
+        ok, msg = validateFuncInCP(cmpptn, label, self.fnclass, 'StreamSrc names unknown stream label "{}"'.format(label))
         if not ok:
             msgs.append(msg)
 
@@ -766,7 +842,7 @@ class StreamSrc:
         cmpptn = self.init['dstcmpptn']
         label  = self.init['dstlabel']
 
-        ok, msg = validateFuncInCP(cmpptn, label, 'StreamSrc names unknown stream label "{}"'.format(label))
+        ok, msg = validateFuncInCP(cmpptn, label, self.fnclass, 'StreamSrc names unknown stream label "{}"'.format(label))
         if not ok:
             msgs.append(msg)
 
@@ -854,6 +930,7 @@ class StreamSrc:
 
 class StreamDst:
     def __init__(self, row):
+        self.fnclass = 'streamdst'
         self.init = {'groups': []}
         for field, idx in strmDstIdx.items():
             if idx==0:
@@ -880,7 +957,7 @@ class StreamDst:
         cmpptn = self.init['srccmpptn']
         label  = self.init['srclabel']
 
-        ok, msg = validateFuncInCP(cmpptn, label, 'StreamDst names unknown stream label "{}"'.format(label))
+        ok, msg = validateFuncInCP(cmpptn, label, self.fnclass, 'StreamDst names unknown stream label "{}"'.format(label))
         if not ok:
             msgs.append(msg)
 
@@ -897,7 +974,7 @@ class StreamDst:
         cmpptn = self.init['dstcmpptn']
         label  = self.init['dstlabel']
 
-        ok, msg = validateFuncInCP(cmpptn, label, 'StreamDst names unknown stream label "{}"'.format(label))
+        ok, msg = validateFuncInCP(cmpptn, label, self.fnclass, 'StreamDst names unknown stream label "{}"'.format(label))
         if not ok:
             msgs.append(msg)
 
@@ -935,6 +1012,7 @@ class StreamDst:
 
 class BckgrndLd:
     def __init__(self, row):
+        self.fnclass = 'bckgrnld'
         self.cmpptn = row[1]
         self.label = row[2]
         self.init = {'bckgrndfunc': row[3], 'bckgrndrate': row[4], 
@@ -955,7 +1033,7 @@ class BckgrndLd:
             exit(1)
 
         msgs = []
-        ok, msg = validateFuncInCP(self.init['cmpptn'], self.init['label'],"bckgrndLd init validation")
+        ok, msg = validateFuncInCP(self.init['cmpptn'], self.init['label'], self.fnclass, "bckgrndLd init validation")
         if not ok:
             msgs.append(msg)
   
@@ -988,6 +1066,7 @@ class BckgrndLd:
 
 class ProcessPckt:
     def __init__(self, row):
+        self.fnclass = 'processpckt'
         self.cmpptn = row[1]
         self.label = row[2]
         self.init = {'timingcode': {}, 
@@ -1016,7 +1095,7 @@ class ProcessPckt:
             msg = 'processPckt initialization trace parameter "{}" needs to be boolean'.format(self.init['trace'])
             msgs.append(msg)
 
-        ok, msg = validateFuncInCP(self.cmpptn, self.label,"processPckt init validation")
+        ok, msg = validateFuncInCP(self.cmpptn, self.label, self.fnclass, "processPckt init validation")
         if not ok:
             msgs.append(msg)
 
@@ -1066,6 +1145,7 @@ class ProcessPckt:
 
 class Transfer:
     def __init__(self, row):
+        self.fnclass = 'transfer'
         self.cmpptn = row[1]
         self.label = row[2]
         self.init = {'carried': row[3], 
@@ -1099,7 +1179,7 @@ class Transfer:
             msg = 'transfer initialization carried parameter "{}" needs to be boolean'.format(self.init['carried'])
             msgs.append(msg)
 
-        ok, msg = validateFuncInCP(self.cmpptn, self.label,"transfer init validation")
+        ok, msg = validateFuncInCP(self.cmpptn, self.label, self.fnclass, "transfer init validation")
         if not ok:
             msgs.append(msg)
 
@@ -1108,7 +1188,7 @@ class Transfer:
             return False, msg 
 
         if not cnvrtBool(self.init['carried']) == 1:
-            ok, msg = validateFuncInCP(self.init['xcp'], self.init['xlabel'],"transfer init validation")
+            ok, msg = validateFuncInCP(self.init['xcp'], self.init['xlabel'], self.fnclass, "transfer init validation")
             if not ok:
                 msgs.append(msg)
 
@@ -1214,7 +1294,7 @@ def cnvrtBool(v):
     return v
 
 # 
-def validateFuncInCP(cmpPtnName, funcName, msg):
+def validateFuncInCP(cmpPtnName, funcName, funcClass, msg):
     if not validateFlag:
         return True, ""
 
@@ -1228,9 +1308,10 @@ def validateFuncInCP(cmpPtnName, funcName, msg):
     cpi = cmpPtnInstDict[cmpPtnName]
     for func in cpi.funcInstList: 
         if func.funcName == funcName:
-            return True, "" 
+            if func.fnclassName.lower() == funcClass.lower():
+                return True, ""
 
-    msg = '{}: func "{}" not found in CP "{}"'.format(msg, funcName, cmpPtnName)
+    msg = '{}: func "{}" of class "{}" not found in CP "{}"'.format(msg, funcName, funcClass, cmpPtnName)
     return False, msg 
 
 def validateFunc(cmpPtnClass, funcName, ):
@@ -1346,7 +1427,11 @@ def main():
     # output in the format of cpInit.yaml
     parser.add_argument(u'-cpInit', metavar = u'cpInit file name', dest=u'cpInit_output', required=True)
 
-    parser.add_argument(u'-cpuOpsDescIn', metavar = u'input operations in the function table for a given cpu Model', dest=u'cpuOpsDesc_input', required=True)
+    parser.add_argument(u'-cpuOpsDescIn', metavar = u'input operations in the function table for a given cpu Model', 
+        dest=u'cpuOpsDesc_input', required=True)
+
+    parser.add_argument(u'-feedDescIn', metavar = u'description of feeds from convert-ipmap', 
+        dest=u'feedDesc_input', required=True)
 
     # method code file is json dictionary whose key is the known function classes
     # and the value is a list of method codes recognized by that class
@@ -1401,6 +1486,7 @@ def main():
     #mc_input_file = os.path.join(descDir, args.mc_input)
     exprmnt_input_file = os.path.join(descDir, 'exprmnt.json')
     cpuOpsDesc_input_file = os.path.join(descDir, args.cpuOpsDesc_input)
+    feedDesc_input_file = os.path.join(descDir, args.feedDesc_input)
 
     cmpptn_output_file = os.path.join(yamlDir, args.cmpptn_output)
     cpInit_output_file = os.path.join(yamlDir, args.cpInit_output)
@@ -1412,7 +1498,7 @@ def main():
 
     errs = 0
     #input_files = (csv_input_file, mc_input_file, cpuOpsDesc_input_file, exprmnt_input_file)
-    input_files = (csv_input_file, cpuOpsDesc_input_file, exprmnt_input_file)
+    input_files = (csv_input_file, cpuOpsDesc_input_file, feedDesc_input_file, exprmnt_input_file)
     for input_file in input_files:
         if not os.path.isfile(input_file):
             print_err('unable to open input file "{}"'.format(input_file))
@@ -1461,6 +1547,7 @@ def main():
     GroupsIdx['srvRsp'] = 9
     GroupsIdx['measure'] = 8
     GroupsIdx['start'] = 10
+    GroupsIdx['feed'] = 7
     GroupsIdx['finish'] = 7
     GroupsIdx['bckgrndld'] = 9
     GroupsIdx['processPckt'] = 11
@@ -1468,11 +1555,12 @@ def main():
     GroupsIdx['streamsrc'] = strmSrcIdx['groups']
     GroupsIdx['streamdst'] = strmDstIdx['groups']
 
-    #with open(mc_input_file,'r') as rf:
-    #    mcodes = json.load(rf)
-
     with open(cpuOpsDesc_input_file,'r') as rf:
         cpuOps = json.load(rf)
+
+    # feed description dictionary is indexed by feed name
+    with open(feedDesc_input_file,'r') as rf:
+        feedDesc = json.load(rf)
 
     with open(exprmnt_input_file, 'r') as rf:
         exprmnts = json.load(rf)
@@ -1672,6 +1760,11 @@ def main():
                         if cmpPtnName not in initClassDict:
                            initClassDict[cmpPtnName] = {}
                         initClassDict[cmpPtnName][funcLabel] = Start(row)
+
+                elif className == 'feed': 
+                        if cmpPtnName not in initClassDict:
+                           initClassDict[cmpPtnName] = {}
+                        initClassDict[cmpPtnName][funcLabel] = Feed(row)
 
                 elif className == 'finish': 
                         if cmpPtnName not in initClassDict:

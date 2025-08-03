@@ -27,6 +27,17 @@ convertDir = ""
 templateDir = ""
 argsDir = ""
 
+sheetNames = []
+
+def normalizeSheetName(name):
+    if name == 'execTime':
+        return 'exec'
+
+    if name == 'netParams':
+        return 'netparams'
+
+    return name
+
 def convert_xlsx_to_csv(xlsx_file):
     """Converts all sheets in an XLSX file to individual CSV files."""
 
@@ -35,8 +46,12 @@ def convert_xlsx_to_csv(xlsx_file):
 
     # Iterate over each sheet
     for sheet_name in xls.sheet_names:
+
         # Read the sheet into a DataFrame
         df = pd.read_excel(xlsx_file, sheet_name=sheet_name)
+
+        sheet_name = normalizeSheetName(sheet_name)
+        sheetNames.append(sheet_name) 
 
         sheet_output_name = os.path.join(templateDir, sheet_name+"-sheet")
         # Create a CSV filename for the sheet
@@ -47,6 +62,13 @@ def convert_xlsx_to_csv(xlsx_file):
 
         print(f"Sheet '{sheet_name}' converted to '{csv_file}'")
         converted_files.append(sheet_output_name)
+
+    # if ipmap is not in xls.sheet_names we create an empty csv file for it
+    if 'ipmap' not in xls.sheet_names:
+        ipmap_name = os.path.join(templateDir, "ipmap-sheet.csv")
+        with open(ipmap_name,'w') as wf:
+            wf.write("Unnamed: 0,Unnamed: 1,Unnamed: 2,Unnamed: 3,Unnamed: 4,Unnamed: 5,Unnamed: 6")
+            wf.write(",,,,,,")
 
 def main():
     global workingDir, csvDir, templateDir, script_present, yamlDir, descDir, convertDir, argsDir 
@@ -109,7 +131,8 @@ def main():
         if not os.path.isdir(cdir):
             if cd not in required:
                 commonDict[cd] = tempfile.mkdtemp() 
-                print('{} argument directory {} not accessible, creating temporary directory {}'.format(__file__, cd, commonDict[cd]), file=sys.stderr)
+                print('{} argument directory {} not accessible, creating temporary directory {}'.format(__file__, 
+                    cd, commonDict[cd]), file=sys.stderr)
                 tempdirs.append(commonDict[cd])
             else:
                 print(__file__, 'directory', cd, 'not accessible and is required', file=sys.stderr)
@@ -120,8 +143,8 @@ def main():
     templateDir = commonDict['templateDir']
     workingDir = commonDict['workingDir']
 
-    fileTypes = ('cp', 'topo', 'map', 'netparams', 'exec', 'experiments')
-    optional = ('experiments')
+    fileTypes = ('cp', 'topo', 'mapping', 'ipmap', 'netparams', 'exec', 'experiments')
+    optional = ('experiments','ipmap')
 
     # make sure that the scripts expected for conversion are present
     
@@ -190,8 +213,6 @@ def main():
 
     # csv files are in templateDir.  Copy them all to csvDir
     template2csv()     
- 
-    sheetNames = ('cp','topo','execTime','netParams','mapping','experiments')
 
     # make sure we can get to all the files we expect in template
 
@@ -307,11 +328,13 @@ def main():
         # N.B. a sheet that was modified may generate aux files that depend on the
         # modification, which means that downstream transformations depend on it, so
         # we broad-brush the conversions 
-        transformations = [("convert-exec.py", "exec"), ("convert-topo.py", "topo"), ("convert-cp.py", "cp"),
+        transformations = [("convert-exec.py", "exec"), ("convert-topo.py", "topo"), 
+            ("convert-ipmap.py", "ipmap"), ("convert-cp.py", "cp"),
             ("convert-map.py", "map"), ("convert-netparams.py", "netparams")]
 
         for scriptName, sheet in transformations:
-            convertSheet(scriptName, sheet, True)
+            if sheet in sheetNames:
+                convertSheet(scriptName, sheet, True)
 
         # errors that crop up due to individual experiments have been reported, now
         # do the transformation on the csvs that carry the symbols
@@ -321,12 +344,13 @@ def main():
 
     # transformations w/o experiment sheet
     transformations = [("convert-exec.py", "exec"), ("convert-topo.py", "topo"), ("convert-cp.py", "cp"),
-        ("convert-map.py", "map"), ("convert-netparams.py", "netparams"), ("convert-experiments.py", "experiments")]
+        ("convert-map.py", "map"), ("convert-ipmap.py", "ipmap"), ("convert-netparams.py", "netparams"), ("convert-experiments.py", "experiments")]
 
     # do 'em all
     print("Transform csv files with symbols to yaml files with symbols")
     for scriptName, sheet in transformations:
-        convertSheet(scriptName, sheet, False)
+        if sheet in sheetNames:
+            convertSheet(scriptName, sheet, False)
 
 def template2csv():
     directory_path = templateDir

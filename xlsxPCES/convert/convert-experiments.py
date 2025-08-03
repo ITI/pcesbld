@@ -15,7 +15,7 @@ cryptoAEModes = ('CCM', 'GCM', 'CWC', 'EAX', 'IAPM', 'OCB')
 expNameIdx = 0
 variableName = []
 
-sheetNames = ('topo', 'cp', 'execTime', 'mapping', 'netParams')
+sheetNames = ('topo', 'cp', 'exec', 'mapping', 'netParams', 'ipmap')
 
 def cnvrtBool(v):
     if isinstance(v,int) and (v==0 or v==1):

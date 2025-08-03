@@ -6,3 +6,4 @@
 -funcsDescOut funcs.json
 -cmpptn cp.yaml
 -cpInit cpInit.yaml
+-feedDescIn feedDesc.json

@@ -61,7 +61,6 @@ flowReqRateIdx = 4
 flowFrameSizeIdx = 5
 flowGroupIdx = 6
 
-
 networks = False
 switches = False
 routers  = False
@@ -470,6 +469,7 @@ class WirelessConnection:
         dev = getDev(self.dev)
         devName = dev.name
 
+        msgs = []
         intrfc = {}
         intrfc['name'] = 'intrfc@'+devName+'->'+self.network
         intrfc['groups'] = []
@@ -496,6 +496,8 @@ class WirelessConnection:
 
         intrfcList.append(intrfc)
 
+        return msgs
+
 class Flow:
     def __init__(self, row):
         self.init = {}
@@ -520,18 +522,21 @@ class Flow:
         self.groups.append(group)
 
     def validate(self):
+        if not validateFlag:
+            return True, ""
+
         # check that the source and destinations are known endpoints
         msgs = []
-        if self.srcdev not in endpointNames:
+        if self.srcdev not in endptNames:
             msg = 'flow {} includes source endpoint "{}" with no definition'.format(self.name, self.srvdev)
             msgs.append(msg)
 
-        if self.dstdev not in endpointNames:
+        if self.dstdev not in endptNames:
             msg = 'flow {} includes destination endpoint "{}" with no definition'.format(self.name, self.dstdev)
             msgs.append(msg)
 
-        if self.init['mode'] not in ('packet', 'elastic-flow', 'inelastic-flow'):
-            msg = 'flow {} mode needs to be in ("packet", "elastic-flow", "inelastic-flow")'.format(self.name)
+        if self.init['mode'] not in ('pckt', 'elastic-flow', 'inelastic-flow'):
+            msg = 'flow {} mode needs to be in ("pckt", "elastic-flow", "inelastic-flow")'.format(self.name)
             msgs.append(msg)
  
         try:
@@ -575,7 +580,8 @@ class Flow:
         return rad
 
 def IntrfcAttrb(intrfc):
-    ia = {'name':intrfc['name'], 'groups': intrfc['groups'], 'devtype': intrfc['devtype'], 'media': intrfc['mediatype'], 'faces': intrfc['faces']}
+    ia = {'name':intrfc['name'], 'device':intrfc['device'], 'groups': intrfc['groups'], 'devtype': intrfc['devtype'], 
+        'media': intrfc['mediatype'], 'faces': intrfc['faces']}
     return ia
 
 
@@ -596,7 +602,7 @@ class WiredConnection:
 
     def createCabledIntrfcs(self):
         if not self.cable:
-            return
+            return []
 
         intrfc1 = {}
         intrfc1['name'] = 'intrfc@'+self.dev1+'-'+self.dev2
@@ -617,7 +623,8 @@ class WiredConnection:
         # figure out which network contains both of these devices
 
         shared, sharedNets = sharedNetwork(self.dev1, self.dev2)
-        
+       
+        msgs = [] 
         if not shared:
             msg = 'closed connection ({},{}) endpoints do not share a network'.format(self.dev1, self.dev2)
             msgs.append(msg)
@@ -674,10 +681,13 @@ class WiredConnection:
         intrfcList.append(intrfc1)
         intrfcList.append(intrfc2)
 
+        return msgs
+
     def createCarryIntrfcs(self):
         if self.cable:
-            return
+            return []
 
+        msgs = []
         # create an interface for dev1 if needed
         intrfc1 = {}
         intrfc1['name'] = 'intrfc@'+self.dev1+'-'+self.dev2
@@ -777,6 +787,8 @@ class WiredConnection:
         if newIntrfc2:
             dev2.addIntrfc(intrfc2)
             intrfcList.append(intrfc2)
+
+        return msgs
 
     def validate(self):
         if not validateFlag:
@@ -952,6 +964,21 @@ def validateEndpts():
         endptnames[endpt.name] = True 
 
         valid, msg = endpt.validate()
+        if not valid:
+            msgs.append(msg)
+
+    if len(msgs) > 0:
+        return False, '\n'.join(msgs)
+
+    return True, ""
+
+def validateFlows():
+    if not validateFlag:
+        return True, ""
+
+    msgs = []
+    for flow in flowList:
+        valid, msg = flow.validate()
         if not valid:
             msgs.append(msg)
 
@@ -1139,7 +1166,7 @@ def wiredoryAccessible(path):
  
  
 def main():
-    global endptList, networkList, switchList, routerList, wiredConnList, flowList, validateFlag, modelDict
+    global endptList, networkList, switchList, routerList, wiredConnList, flowList, validateFlag, modelDict 
 
     parser = argparse.ArgumentParser()
     parser.add_argument(u'-name', metavar = u'name of system', dest=u'name', required=True)
@@ -1251,7 +1278,9 @@ def main():
             row = cleanRow(row)
 
             matchCode = "None"
-            rowTypes = ('Networks', 'Switches', 'Routers', 'Endpoints', 'Wired-Connections', 'Wireless-Connections', 'Flows')
+            rowTypes = ('Networks', 'Switches', 'Routers', 'Endpoints', 'Wired-Connections', 
+                'Wireless-Connections', 'Flows')
+
             for rowtype in rowTypes:
                 if row[0].find(rowtype) > -1:
                     matchCode = rowtype 
@@ -1332,7 +1361,6 @@ def main():
                     flows = True 
                     maxCols = 8
                     continue
-
 
             row = row[:maxCols]
 
@@ -1492,11 +1520,11 @@ def main():
                 wirelessConnList.append(WirelessConnection(row))
 
             if flows:
-                if len(row[flowSrcIdx]) > 0:
+                if len(row[0]) > 0:
                     flowList.append(Flow(row))
                 elif len(row[flowGroupIdx]) > 0:
                     flowList[-1].addGroup(row[flowGroupIdx])
-            
+
             continue
 
     msgs = []
@@ -1513,6 +1541,10 @@ def main():
         msgs.append(msg)
 
     valid, msg = validateEndpts()
+    if not valid:
+        msgs.append(msg)
+
+    valid, msg = validateFlows()
     if not valid:
         msgs.append(msg)
 
@@ -1536,15 +1568,27 @@ def main():
 
     # create interfaces for wired connections
     for conn in wiredConnList:
-        conn.createCabledIntrfcs()
+        msgList = conn.createCabledIntrfcs()
+        if len(msgList) > 0:
+            msgs.extend(msgList)
     
     # create interfaces for wired connections
     for conn in wiredConnList:
-        conn.createCarryIntrfcs()
+        msgList = conn.createCarryIntrfcs()
+        if len(msgList) > 0:
+            msgs.extend(msgList)
     
     # create interfaces for wireless connections
     for conn in wirelessConnList:
-        conn.createDevIntrfc()
+        msg = conn.createDevIntrfc()
+        if len(msgList) > 0:
+            msgs.extend(msgList)
+
+    if len(msgs) > 0:
+        for msg in msgs:
+            msg.replace('\n','')
+            print_err(msg)
+        exit(1)
 
     # include implied links
     #createLinks()

@@ -46,7 +46,6 @@ class Mapping():
         self.label  = row[1]
         self.cpu = row[2]
         self.pri = row[3]
-
         cpFunc.append((self.cmpptn, self.label))
   
     def validate(self):
