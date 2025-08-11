@@ -21,11 +21,10 @@ cpFuncs = {}
 cpInstDict = {}
 cpMC = {}
 edgeMsg = {}
-feedDesc = {}
 
 mcodes = {"processPckt":["default","processOp"], "finish":["default","finishOp"], "measure":["default","measure"], 
     "srvRsp":["default"], "srvReq":["default", "request","return"], "transfer":["default"], "authReq":["default"], 
-    "bckgrndLd":[], "transfer":[], "streamsrc":[], "streamdst":[]}
+    "bckgrndLd":[], "transfer":[], "streamsrc":[], "streamdst":[], "metadata":[]}
 
 messages = {}
 classFuncs = {}
@@ -41,8 +40,7 @@ connectionList = []
 cmpptnDesc = {}
 
 pcesFuncClasses = ('srvReq', 'srvRsp', 'measure', 'start', 'feed', 'finish', 'bckgrndLd', 
-                        'processPckt', 'transfer', 'streamsrc', 'streamdst')
-
+                        'processPckt', 'transfer', 'streamsrc', 'streamdst', 'metadata')
 TimingCodeFuncs = []
 
 strmSrcIdx = {}
@@ -80,17 +78,27 @@ strmDstIdx['data'] = len(strmDstIdx)
 strmDstIdx['groups'] = len(strmDstIdx)
 strmDstIdx['trace'] = len(strmDstIdx)
 
+MetaIdx = {}
+MetaIdx['cmpptn'] = 1
+MetaIdx['label'] = 2
+MetaIdx['remove'] = 3
+MetaIdx['name'] = 4
+MetaIdx['value'] = 5
+MetaIdx['trace'] = 6
+MetaIdx['groups'] = 7
+
 initRowLen = {}
 initRowLen['srvReq'] = 14
 initRowLen['srvRsp'] = 10
 initRowLen['measure'] = 9
 initRowLen['start'] = 11
-initRowLen['feed'] = 8
+initRowLen['feed'] = 9
 initRowLen['finish'] = 8
 initRowLen['processPckt'] = 12
 initRowLen['transfer'] = 11
 initRowLen['streamsrc'] = 21
 initRowLen['streamdst'] = 10
+initRowLen['metadata'] = 8
 
 class FuncEdge:
     def __init__(self, cp, label, msgType):
@@ -682,10 +690,11 @@ class Feed:
         self.fnclass = 'feed'
         self.cmpptn = row[1]
         self.label = row[2]
-        self.ip = row[3]
+        self.srcip = row[3]
+        self.dstip = row[4]
         
-        self.init = {'ip': self.ip, 'msgtype': row[4], 'data': row[5], 
-             'groups':[], 'trace': row[6]}
+        self.init = {'srcip': self.srcip, 'dstip': self.dstip, 'msgtype': row[5], 'data': row[6], 
+             'groups':[], 'trace': row[7]}
 
     def addGroup(self, groupName):
         if 'groups' not in self.init:
@@ -711,26 +720,60 @@ class Feed:
             if not ok:
                 msgs.append(msg)
 
-        if self.ip.find(':') == -1:
-            msg = 'Start feed description {} not in format IP:port'.format(self.ip)
+
+        # at least one of self.srcip and self.dstip has to be specified, but it is not needed to 
+        # specify both
+        if len(self.srcip) == 0:
+            msg = 'feed source specification is empty'
             msgs.append(msg)
-        else: 
-            pieces = self.ip.split(':')
+
+        if len(self.dstip) == 0:
+            msg = 'feed destinatino specification is empty'
+            msgs.append(msg)
+
+        if len(self.srcip) > 0 and self.srcip.find(':') == -1:
+            msg = 'feed source description {} not in format IP:port'.format(self.srcip)
+            msgs.append(msg)
+        elif len(self.srcip) > 0: 
+            pieces = self.srcip.split(':')
             if len(pieces) != 2:
-                msg = 'Start feed description {} not in format FeedName,IP:port'.format(self.ip)
+                msg = 'feed source description {} not in format FeedName,IP:port'.format(self.srcip)
+                msgs.append(msg)
+            else:
+                if pieces[0] != "*" and not is_legal_ip_address(pieces[0]):
+                    msg = 'feed source description {} not in format FeedName,IP:port'.format(self.srcip)
+                    msgs.append(msg)
+
+                if pieces[1] != '*':
+                    try:
+                        portNum = int(pieces[1])
+                        if not portNum > 0:
+                            msg = 'feed source description {} needs positive port number'.format(self.srcip)
+                            msgs.append(msg)
+                    except:
+                        msg = 'feed source description {} needs positive port number'.format(self.feed)
+                        msgs.append(msg)
+
+        if len(self.dstip) > 0 and self.dstip.find(':') == -1:
+            msg = 'feed destination description {} not in format IP:port'.format(self.dstip)
+            msgs.append(msg)
+        elif len(self.dstip) > 0: 
+            pieces = self.dstip.split(':')
+            if len(pieces) != 2:
+                msg = 'feed destination description {} not in format FeedName,IP:port'.format(self.dstip)
                 msgs.append(msg)
             else:
                 if not is_legal_ip_address(pieces[0]):
-                    msg = 'Start feed description {} not in format FeedName,IP:port'.format(self.ip)
+                    msg = 'feed destination description {} not in format FeedName,IP:port'.format(self.dstip)
                     msgs.append(msg)
                 elif pieces[1] != '*':
                     try:
                         portNum = int(pieces[1])
                         if not portNum > 0:
-                            msg = 'Start feed description {} needs positive port number'.format(self.ip)
+                            msg = 'feed destination description {} needs positive port number'.format(self.dstip)
                             msgs.append(msg)
                     except:
-                        msg = 'Start feed description {} needs positive port number'.format(self.feed)
+                        msg = 'feed destination description {} needs positive port number'.format(self.feed)
                         msgs.append(msg)
 
         if len(msgs) > 0:
@@ -1205,6 +1248,53 @@ class Transfer:
         self.init['carried'] = cnvrtBool(self.init['carried'])
         return self.init
 
+class MetaData:
+    def __init__(self, row):
+        self.fnclass = 'metadata'
+        self.cmpptn = row[MetaIdx['cmpptn']]
+        self.label = row[MetaIdx['label']]
+        
+        self.init = {'remove':[], 'metadict':{}, 'trace':row[MetaIdx['trace']], 'groups':[]}
+
+    def addGroup(self, groupName):
+        if 'groups' not in self.init:
+            self.init['groups'] = []
+        if groupName not in self.init['groups']:
+            self.init['groups'].append(groupName)
+        
+
+    def validate(self):
+        if not validateFlag:
+            return True, ""
+
+        if self.cmpptn not in cmpPtnInstDict:
+            print_err('cp name "{}" in Transfer init not recognized'.format(self.cmpptn))
+            exit(1)
+
+        msgs = []
+        if not validateBool(self.init['trace']):
+            msg = 'transfer initialization trace parameter "{}" needs to be boolean'.format(self.init['trace'])
+            msgs.append(msg)
+
+        ok, msg = validateFuncInCP(self.cmpptn, self.label, self.fnclass, "metadata init validation")
+        if not ok:
+            msgs.append(msg)
+
+        if len(msgs) > 0:
+            return False, '\n'.join(msgs)
+
+        return True, ""
+
+    def addMetaDict(self, metaName, metaData):
+        self.init['metadict'][metaName] = metaData
+
+    def addMetaRm(self, metaName):
+        self.init['remove'].append(metaName)
+
+    def serializeDict(self):
+        self.init['trace']   = cnvrtBool(self.init['trace'])
+        return self.init
+
 def validateCmpPtns():
     global validateFlag
 
@@ -1430,9 +1520,6 @@ def main():
     parser.add_argument(u'-cpuOpsDescIn', metavar = u'input operations in the function table for a given cpu Model', 
         dest=u'cpuOpsDesc_input', required=True)
 
-    parser.add_argument(u'-feedDescIn', metavar = u'description of feeds from convert-ipmap', 
-        dest=u'feedDesc_input', required=True)
-
     # method code file is json dictionary whose key is the known function classes
     # and the value is a list of method codes recognized by that class
     parser.add_argument(u'-mc', metavar = u'input method code map file name', dest=u'mc_input', required=True)
@@ -1486,7 +1573,6 @@ def main():
     #mc_input_file = os.path.join(descDir, args.mc_input)
     exprmnt_input_file = os.path.join(descDir, 'exprmnt.json')
     cpuOpsDesc_input_file = os.path.join(descDir, args.cpuOpsDesc_input)
-    feedDesc_input_file = os.path.join(descDir, args.feedDesc_input)
 
     cmpptn_output_file = os.path.join(yamlDir, args.cmpptn_output)
     cpInit_output_file = os.path.join(yamlDir, args.cpInit_output)
@@ -1497,8 +1583,7 @@ def main():
     sysname = args.name
 
     errs = 0
-    #input_files = (csv_input_file, mc_input_file, cpuOpsDesc_input_file, exprmnt_input_file)
-    input_files = (csv_input_file, cpuOpsDesc_input_file, feedDesc_input_file, exprmnt_input_file)
+    input_files = (csv_input_file, cpuOpsDesc_input_file, exprmnt_input_file)
     for input_file in input_files:
         if not os.path.isfile(input_file):
             print_err('unable to open input file "{}"'.format(input_file))
@@ -1554,13 +1639,11 @@ def main():
     GroupsIdx['transfer'] = 10
     GroupsIdx['streamsrc'] = strmSrcIdx['groups']
     GroupsIdx['streamdst'] = strmDstIdx['groups']
+    GroupsIdx['metadata'] = MetaIdx['groups']
+
 
     with open(cpuOpsDesc_input_file,'r') as rf:
         cpuOps = json.load(rf)
-
-    # feed description dictionary is indexed by feed name
-    with open(feedDesc_input_file,'r') as rf:
-        feedDesc = json.load(rf)
 
     with open(exprmnt_input_file, 'r') as rf:
         exprmnts = json.load(rf)
@@ -1780,6 +1863,23 @@ def main():
                         if cmpPtnName not in initClassDict:
                            initClassDict[cmpPtnName] = {}
                         initClassDict[cmpPtnName][funcLabel] = StreamDst(row)
+
+                elif className == 'metadata':
+                    if cmpPtnName not in initClassDict:
+                       initClassDict[cmpPtnName] = {}
+                    initClassDict[cmpPtnName][funcLabel] = MetaData(row)
+
+
+                    name = row[MetaIdx['remove']]
+
+                    if len(name) > 0:
+                        initClassDict[cmpPtnName][funcLabel].addMetaRm(name)
+
+                    name = row[MetaIdx['name']]
+                    if len(name) > 0:
+                        value = row[MetaIdx['value']]
+                        initClassDict[cmpPtnName][funcLabel].addMetaDict(name, value) 
+                               
 
                 if className in Msg2MCIdx:
                     ridx = Msg2MCIdx[className]      

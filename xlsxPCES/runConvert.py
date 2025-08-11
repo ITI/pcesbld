@@ -31,7 +31,7 @@ sheetNames = []
 
 def normalizeSheetName(name):
     if name == 'execTime':
-        return 'exec'
+        return 'exectime'
 
     if name == 'netParams':
         return 'netparams'
@@ -69,6 +69,7 @@ def convert_xlsx_to_csv(xlsx_file):
         with open(ipmap_name,'w') as wf:
             wf.write("Unnamed: 0,Unnamed: 1,Unnamed: 2,Unnamed: 3,Unnamed: 4,Unnamed: 5,Unnamed: 6")
             wf.write(",,,,,,")
+        sheetNames.append('ipmap')
 
 def main():
     global workingDir, csvDir, templateDir, script_present, yamlDir, descDir, convertDir, argsDir 
@@ -143,7 +144,7 @@ def main():
     templateDir = commonDict['templateDir']
     workingDir = commonDict['workingDir']
 
-    fileTypes = ('cp', 'topo', 'mapping', 'ipmap', 'netparams', 'exec', 'experiments')
+    fileTypes = ('cp', 'topo', 'mapping', 'ipmap', 'netparams', 'exectime', 'experiments')
     optional = ('experiments','ipmap')
 
     # make sure that the scripts expected for conversion are present
@@ -328,9 +329,9 @@ def main():
         # N.B. a sheet that was modified may generate aux files that depend on the
         # modification, which means that downstream transformations depend on it, so
         # we broad-brush the conversions 
-        transformations = [("convert-exec.py", "exec"), ("convert-topo.py", "topo"), 
+        transformations = [("convert-exectime.py", "exectime"), ("convert-topo.py", "topo"), 
             ("convert-ipmap.py", "ipmap"), ("convert-cp.py", "cp"),
-            ("convert-map.py", "map"), ("convert-netparams.py", "netparams")]
+            ("convert-mapping.py", "mapping"), ("convert-netparams.py", "netparams")]
 
         for scriptName, sheet in transformations:
             if sheet in sheetNames:
@@ -343,8 +344,9 @@ def main():
     template2csv()
 
     # transformations w/o experiment sheet
-    transformations = [("convert-exec.py", "exec"), ("convert-topo.py", "topo"), ("convert-cp.py", "cp"),
-        ("convert-map.py", "map"), ("convert-ipmap.py", "ipmap"), ("convert-netparams.py", "netparams"), ("convert-experiments.py", "experiments")]
+    transformations = [("convert-exectime.py", "exectime"), ("convert-topo.py", "topo"), ("convert-cp.py", "cp"),
+        ("convert-mapping.py", "mapping"), ("convert-ipmap.py", "ipmap"), 
+        ("convert-netparams.py", "netparams"), ("convert-experiments.py", "experiments")]
 
     # do 'em all
     print("Transform csv files with symbols to yaml files with symbols")

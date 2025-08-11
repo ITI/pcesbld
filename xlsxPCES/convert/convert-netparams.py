@@ -45,7 +45,7 @@ endptParamLater = ('bckgrndrate', 'bckgrndsrv')
 intrfcAttrbIdx = {}
 intrfcParamIdx = {}
 intrfcAttrb = ('name', 'groups', 'devtype', 'devname', 'media', 'faces', '*')
-intrfcParam = ('latency', 'bandwidth', 'mtu', 'trace')
+intrfcParam = ('latency', 'bandwidth', 'mtu', 'trace','detailedflow')
 intrfcParamLater = ('rsrvd','drop')
 
 flowAttrbIdx = {}
@@ -722,7 +722,7 @@ class Interface:
                     if paramName in ('mtu'):
                         paramValue = int(mtu)
 
-                if paramName in ('trace'):
+                if paramName in ('trace', 'detailedflow'):
                     paramValue = cnvrtBool(paramValue)
  
                 rd = {'paramObj': 'Interface', 'attributes': [], 'param': paramName, 'value': paramValue}
@@ -739,7 +739,7 @@ class Interface:
 
     def validate(self):
         # intrfcAttrb = ('name', 'group', 'devtype', 'devname', 'media', 'faces', '*')
-        # intrfcParm  = ('latency', 'bandwidth', 'mtu', 'trace')
+        # intrfcParm  = ('latency', 'bandwidth', 'mtu', 'trace', 'detailedflow')
         errs = []
         warnings = []
 
@@ -750,6 +750,14 @@ class Interface:
             errs.append(msg)
         else:
             self.param['trace'] = cnvrtBool(trace)
+
+        detailedflow = self.param['detailedflow']
+        valid, msg = validateBool(detailedflow)
+        if not valid:
+            msg = 'error: Interface param lists non-Boolean representation '"{}"' for detailed flow parameter'.format(trace)
+            errs.append(msg)
+        else:
+            self.param['detailedflow'] = cnvrtBool(detailedflow)
 
         if not validateFlag:
             return True, ""

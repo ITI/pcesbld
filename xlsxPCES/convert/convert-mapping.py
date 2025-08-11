@@ -99,7 +99,7 @@ class Mapping():
             
             if (selfKey in cmpptnFuncPairs):
                 opsFromTopo = cmpptnFuncPairs[selfKey]
-                
+                            
                 # check each of these against the ops from Exec to see if present
                 for op in opsFromTopo: 
 
@@ -119,7 +119,7 @@ class Mapping():
                         if len(self.cpu) > 0:
                             cpuName = self.cpu
 
-                        msg = 'expected operation {} for ({},{}) to be func exec table associated with model to which endpoint {} is attached'.format(op, cmpptnName, labelName, cpuName)
+                        msg = 'expected operation {} for ({},{}) to be func exec table associated with model to which endpoint {} is attached, missing from {}'.format(op, cmpptnName, labelName, cpuName, opsFromExec)
                         msgs.append(msg)
 
         if len(msgs) > 0:
@@ -253,7 +253,7 @@ def main():
     parser.add_argument(u'-tcDesc', metavar = u'input file of timing code information', dest=u'tcDesc_input', required=True)
 
     # output file of mapping table
-    parser.add_argument(u'-map', metavar = u'output file of mapping output', dest=u'map_output', required=True)
+    parser.add_argument(u'-mapping', metavar = u'output file of mapping output', dest=u'map_output', required=True)
 
     cmdline = sys.argv[1:]
     if len(sys.argv) == 3 and sys.argv[1] == "-is":

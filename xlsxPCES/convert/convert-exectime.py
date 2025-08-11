@@ -23,6 +23,7 @@ bndwdthIdx = 4
 
 execTimeList = []
 devOpTimeList = []
+functionList = []
 
 def varFloatScale(v,s):
     v = v.replace(' ','')
@@ -85,7 +86,8 @@ class DevOpTimeEntry:
     def __init__(self, devtype, row):
         self.devtype = devtype                      # model 
         self.model = row[modelIdx]
-        self.op = row[operationIdx]
+        self.devop = row[operationIdx]
+        self.op = self.devop
         self.pcktLen = row[pcktLenIdx]
         self.execTime = row[execTimeIdx]
         self.bndwdth  = row[bndwdthIdx]
@@ -99,10 +101,10 @@ class DevOpTimeEntry:
             msg = 'devOpTime table packet length {} required to be positive integer'.format(self.pcktLen)
             msgs.append(msg)
 
-        if len(self.model) == 0 and len(self.op) > 0:
-            msg = 'expected operation {} to be assigned to non-empty device name'.format(self.op)
+        if len(self.model) == 0 and len(self.devop) > 0:
+            msg = 'expected operation {} to be assigned to non-empty device name'.format(self.devop)
             msgs.append(msg)
-        elif len(self.model) == 0 and len(self.op) == 0:
+        elif len(self.model) == 0 and len(self.devop) == 0:
             msg = 'expected operation and processor on device op time line with pcktLen {} and execution time {}'.format(self.pcktLen, self.execTime)
             msgs.append(msg)
 
@@ -131,8 +133,8 @@ class DevOpTimeEntry:
         return True, "" 
 
     def repDict(self):
-        rd = {'identifier': self.op, 'model': self.model, 'pcktlen': int(self.pcktLen), 
-            'bndwdth': self.bndwdth, 'param':""}
+        rd = {'devop': self.devop, 'model': self.model, 'pcktlen': int(self.pcktLen), 
+            'bndwdth': self.bndwdth, 'param':"", 'devfunc':""}
 
         if self.execTime.find(')') == -1:
             rd['exectime'] = float(self.execTime)/1e6
@@ -141,6 +143,56 @@ class DevOpTimeEntry:
 
         if self.bndwdth.find(')') == -1:
             rd['bndwdth'] = float(self.bndwdth)
+
+        return rd
+
+class FunctionEntry:
+    def __init__(self, devtype, row):
+        self.devtype = devtype                      # model 
+        self.model = row[modelIdx]
+        self.devfunc  = row[operationIdx]
+        self.op = self.devfunc
+        self.pcktLen = row[pcktLenIdx]
+        self.execTime = row[execTimeIdx]
+        self.bndwdth  = 0.0
+
+    def validate(self):
+        if not validateFlag:
+            return True, ""
+
+        msgs = []
+        if not self.pcktLen.isdigit() or int(self.pcktLen) < 0:
+            msg = 'devOpTime table packet length {} required to be positive integer'.format(self.pcktLen)
+            msgs.append(msg)
+
+        if len(self.model) == 0 and len(self.devfunc) > 0:
+            msg = 'expected device function {} to be assigned to non-empty device name'.format(self.devfunc)
+            msgs.append(msg)
+        elif len(self.model) == 0 and len(self.devfunc) == 0:
+            msg = 'expected operation and processor on device op time line with pcktLen {} and execution time {}'.format(self.pcktLen, self.execTime)
+            msgs.append(msg)
+
+        try:
+            tstflt = float(self.execTime)
+            if tstflt < 0.0:
+                msg = 'devOpTime processing {} required to be positive real'.format(self.execTime)
+                msgs.append(msg)
+        except:
+            msg = 'devOpTime processing {} required to be positive real'.format(self.execTime)
+            msgs.append(msg)
+
+        if len(msgs) > 0:
+            return False, '\n'.join(msgs)
+        return True, "" 
+
+    def repDict(self):
+        rd = {'devfunc': self.devfunc, 'model': self.model, 'pcktlen': int(self.pcktLen), 
+            'bndwdth': 0.0, 'param':"", 'devop':""}
+
+        if self.execTime.find(')') == -1:
+            rd['exectime'] = float(self.execTime)/1e6
+        else:
+            rd['exectime'] = varFloatScale(self.execTime, '/1e6')
 
         return rd
 
@@ -185,8 +237,8 @@ def validateUniqueness():
     msgs = []
     seen = {}
     for entry in devOpTimeList:
-       if entry.op in seen:
-            msg = 'expect dev time op table entry {} to be unique'.format(entry.op)
+       if entry.devop in seen:
+            msg = 'expect dev time op table entry {} to be unique'.format(entry.devop)
             msgs.append(msg)
 
     seen = {}
@@ -319,6 +371,7 @@ def main():
                 accelEntries = False
                 routerEntries = False
                 switchEntries = False
+                functionEntries = False
                 continue
                
             if row[0].find("Accel") > -1 and row[0].find('Entries') > 0:
@@ -327,6 +380,7 @@ def main():
                 maxCols = 4
                 routerEntries = False
                 switchEntries = False
+                functionEntries = False
                 continue
                
             if row[0].find("Router") > -1 and row[0].find('Entries') > 0:
@@ -335,6 +389,7 @@ def main():
                 routerEntries = True
                 maxCols = 5
                 switchEntries = False
+                functionEntries = False
                 continue
                
             if row[0].find("Switch") > -1 and row[0].find('Entries') > 0:
@@ -342,7 +397,17 @@ def main():
                 accelEntries = False
                 routerEntries = False
                 switchEntries = True
+                functionEntries = False
                 maxCols = 5
+                continue
+
+            if row[0].find("Function") > -1: 
+                cpuEntries = False
+                accelEntries = False
+                routerEntries = False
+                switchEntries = False
+                functionEntries = True
+                maxCols = 4
                 continue
 
             row = row[:maxCols]
@@ -363,12 +428,21 @@ def main():
                 devOpTimeList.append(DevOpTimeEntry('Switch', row))
                 continue
 
+            if functionEntries:
+                functionList.append(FunctionEntry('Function', row))
+                continue
+
     for entry in execTimeList:
         valid, msg = entry.validate()
         if not valid:
             msgs.append(msg)
 
     for entry in devOpTimeList:
+        valid, msg = entry.validate()
+        if not valid:
+            msgs.append(msg)
+
+    for entry in functionList:
         valid, msg = entry.validate()
         if not valid:
             msgs.append(msg)
@@ -422,6 +496,9 @@ def main():
     opsByModel = {}
     timesByOp  = {}
 
+    devOpList = devOpTimeList
+    devOpList.extend(functionList)
+
     for entry in devOpTimeList:
         if entry.model not in opsByModel:
             opsByModel[entry.model] = []
@@ -431,10 +508,10 @@ def main():
 
         timesByOp[entry.op].append( entry.repDict() )
 
-        if entry.model not in modelDict[entry.devtype]:
+        if entry.devtype != 'Function' and entry.model not in modelDict[entry.devtype]:
             modelDict[entry.devtype][entry.model] = [] 
 
-        if entry.op not in modelDict[entry.devtype][entry.model]:      
+        if entry.devtype != 'Function' and entry.op not in modelDict[entry.devtype][entry.model]:      
             modelDict[entry.devtype][entry.model].append(entry.op) 
 
     tableDict = {'listname': sysname, 'times': timesByOp }

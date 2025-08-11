@@ -1,6 +1,6 @@
 ### Building a PCES model 
 
-(last update May 17, 2025)
+(last update August 7, 2025)
 
 #### xlsxPCES
 
@@ -91,9 +91,10 @@ The names of sheets in an xlsxpces spreadsheet are 'topo', 'cp', 'execTime', 'ma
 1. *convert-experiments.py* to convert file 'experiments.csv' into **pces** input file 'experiments.yaml'.
 2. *convert-exec.py*, to convert file 'execTime-sheet.csv' into **pces** input file 'funcExec.yaml'.
 3. *convert-topo.py* to convert file 'topo-sheet.csv' into **pces** input file 'topo.yaml'.
-4. *convert-cp.py* to convert file 'cp-sheet.csv' into **pces** input files 'cp.yaml' and 'cpInit.py'.
-5. *convert-map.py* to convert file 'map-sheet.csv' into **pces** input file 'map.yaml'.
-6. *convert-netparams.py* to convert file 'netParams-sheet.csv' into **pces** input file 'exp.yaml'.
+4. *convert-ipmap.py* to convert fille 'ipmap-sheet.csv' into pces input file 'ipmap.yaml'. 
+5. *convert-cp.py* to convert file 'cp-sheet.csv' into **pces** input files 'cp.yaml' and 'cpInit.py'.
+6. *convert-map.py* to convert file 'map-sheet.csv' into **pces** input file 'map.yaml'.
+7. *convert-netparams.py* to convert file 'netParams-sheet.csv' into **pces** input file 'exp.yaml'.
 
 The reason for the order is to enable scripts that are earlier in the sequence to create and store auxilary data structures that can be used by scripts later in the sequence to aid in model validation.  For example, in 'exectime-sheet.csv' we find the op codes for operations that have been timed, and whose timings may be used in the course of the **pces** model evaluation.    Those same codes appear on other model sheets, e.g., in 'cp-sheet.csv', and so to enable *convert-cp.py* to perform validation checks on the strings written into cells reserved for these op codes, we have *convert-exec.py* create a file that identifies legitimate op codes for use by *convert-cp.py* .
 
@@ -188,6 +189,7 @@ Each of the functions we use need to be configured with parameters that impact t
 | Function Class | Explanation                                                  | Default method codes           |
 | -------------- | ------------------------------------------------------------ | ------------------------------ |
 | start          | Used to initiate the beginning of an execution thread        | "default"                      |
+| feed           | Used to initiate the beginning of an execution thread from a packet derived from an external feed | "default"                      |
 | finish         | Used to signal the completion of an execution thread.        | "default",  "finishOp"         |
 | measure        | An execution thread may encounter a number of 'measure' functions on its route. Each records the elapsed time since the execution thread began. | "default", "measure"           |
 | processPckt    | Receives an input message, simulates the timing delay associated with processing that message, and pushes the message along to another function. | "default", "processOp"         |
@@ -205,7 +207,7 @@ We now consider the initialization parameters, class by class.
 
 ##### start, finish
 
-Choices a modeler has when starting an execution thread include specification of the characteristics of the message that is carried through the thread.  Those specifications include the initial message type, the size (in bytes) of the data frame that carries the message, and the size (in bytes) of the data packet being processed.  These selections are found in the columns labeled 'msg type', 'pcktlen', and 'msglen', respectively. 	One may also specify a non-zero start time for executing the function, in the 'start time' column.  A blank cell is permitted, and is interpreted as 0.0 .  With an eye towards user extensions of the default start function methods, the start parameters include a string parameter 'data', which can carry whatever information that extension requires, provided it is serialized into string form and can be deserialized by the extension code.  The boolean 'trace' column, when True, includes information about the start function execution in the output trace.   If the user wishes to tag the function as member of one or more user-defined 'groups', they put the names of those groups in the 'groups' column.   We could make that same observation for every one of the function classes to follow, but that would be overly redundant and we'll skip.   We will show the group column in each case as a silent reminder.
+Choices a modeler has when starting an execution thread from within the model include specification of the characteristics of the message that is carried through the thread.  Those specifications include the initial message type, the size (in bytes) of the data frame that carries the message, and the size (in bytes) of the data packet being processed.  These selections are found in the columns labeled 'msg type', 'pcktlen', and 'msglen', respectively. 	One may also specify a non-zero start time for executing the function, in the 'start time' column.  A blank cell is permitted, and is interpreted as 0.0 .  With an eye towards user extensions of the default start function methods, the start parameters include a string parameter 'data', which can carry whatever information that extension requires, provided it is serialized into string form and can be deserialized by the extension code.  The boolean 'trace' column, when True, includes information about the start function execution in the output trace.   If the user wishes to tag the function as member of one or more user-defined 'groups', they put the names of those groups in the 'groups' column.   We could make that same observation for every one of the function classes to follow, but that would be overly redundant and we'll skip.   We will show the group column in each case as a silent reminder.
 
 Figure 8 illustrates the fields for rows describing start functions, where the precise function is identified by its CmpPtn name and function label, and the other parameters just described are also given.
 
@@ -213,19 +215,43 @@ Figure 8 illustrates the fields for rows describing start functions, where the p
 
 ***Figure 8:  start and finish function configurations in xlsxPCES running example***
 
-
-
 Figure 8 also includes the configuration parameters for a function of the 'finish' class.  The 'cmpptn', 'label' and 'trace' columns have the same meaning as they do for start functions.    **pces** allows finish functions to have selectable (by message type) response functions, and so here includes the msg2mc dictionary identified earlier in [PCES Function Evaluation](#function evaluation).  Place the dictionary key---an input message type---in the '(msg2mc) input msg type' column, and in that same row place in the '(msg2mc) method code' column place the method code.  Note that this method code must be known to an internal **pces** dictionary, as described in the table of Figure 7.    The example in Figure 8 shows that we expect a finish function to receive a message with message type 'finish', and want to have the default response function (which is selected by the 'default' method code) be called to respond.
+
+##### feed
+
+When a packet is introduced into the simulator from an external feed, the packet starts at a simulation time related to the time of its observation in an external system, and its passage through the network from source to destination (based on its reported IP header addresses) is simulated. On reaching its destination the packet may begin an execution thread, using a function from the 'feed' class.
+
+Imagine now that rather than have the simulation initiate executions of the HMI CmpPtn through internal scheduling, we want those initiations to be driven by external arrivals.   We then change the class of the startThread function to 'feed' in the Patterns portion of this sheet, clear out the 'start' initialization of startThread illustrated in Figure 8, and include a 'feed' class initialization such as shown below in Figure 9. As with other initializations the precise function is identified by its CmpPtn name and function label.
+
+<img src="/Users/nicol/Dropbox/github-repos/pcesbld/docs/images/feed-init.png" alt="feed-init" style="zoom:100%;" />
+
+***Figure 9: Example feed function configuration***
+
+This particular fragment is not part of the running example, but serves well enough to illustrate the points we want to make.
+
+The 'Src Feed IP' and 'Dst Feed IP' fields specify an IP address and port number in a format that uses ':' to separate the two.  The port number may be the wildcard '*' as it is in this example; the IP address is the 'internal' IP address in IP equivalence statement described (later) in the IPTables dictionaries (in sheet imps).   Obviously, this function needs to be mapped to the same device named in that IP equivalence statement.   The 'msg type', 'data', 'trace', and 'groups' fields are just as they are in the start function class.  With this modification, every injection of a feed packet with (internal) IP address 10.0.1.1 will initiate the same chain of function executions as were triggered before by a start function execution.   The time of that execution is the time attributed to the arrival of the packet, plus the simulated transit time of the packet from source to destination.
+
+##### metadata
+
+The running example has no occurence of meta data; we have described its role elsewhere in the PCES documentation.  An example of a xlsx specification to initialized a metadata function is shown below as Figure 10.
+
+![metadata-init](/Users/nicol/Dropbox/github-repos/pcesbld/docs/images/metadata-init.png)
+
+***Figure 10: Example metadata function configurations***
+
+The function being initialized is identified per usual by its CmpPtn name and label within the CmpPtn.  The remove column may hold meta data names (one per row) that the function will remove from a passing CmpPtnMsg.  The 'add' name and 'add' value columns hold the meta data name and value, one pair per row, that the function adds to the CmpPtnMsg's meta data dictionary.
+
+The trace and groups columns are populated just as they are with all the other function classes.
 
 ##### measure
 
-The default output provided by **pces** is a summary of measurements made of the latency of execution threads.  The measurements are observed by functions of the 'measure' class.  A measure function may begin a measurement (typically but not necessarily immedately after execution of a 'start' function), may make a measurement and pass the message along to have the measurement at later points in its route also measured, or may finish a measurement.   Therefore one of the configuration parameters for a measure function is a measurement op code, drawn from {'start', 'end', 'sample'}. The selected parameter value is placed in the colum labeled 'msrop'.  **pces** also enables the modeler to have multiple execution paths pass through a given measure function, but limit its sampling to only those messages tagged with a measurement name that matches its configuration.  The measurement name is placed in the column labeled 'msrname'.   Operationally when a message passes through a measurement function whose msrop is 'start', the message is tagged with a code for the msrname which enables one to limit measurements to measure functions that are tagged with that same code.
+The default output provided by **pces** is a summary of measurements made of the latency of execution threads.  The measurements are observed by functions of the 'measure' class.  A measure function may begin a measurement (typically but not necessarily immedately after execution of a 'start' function), may make a measurement and pass the message along to have the measurement at later points in its route also measured, or may finish a measurement.   Therefore one of the configuration parameters for a measure function is a measurement op code, drawn from {'start', 'start-feed', end', 'sample'}. The selected parameter value is placed in the colum labeled 'msrop'.  **pces** also enables the modeler to have multiple execution paths pass through a given measure function, but limit its sampling to only those messages tagged with a measurement name that matches its configuration.  The measurement name is placed in the column labeled 'msrname'.   Operationally when a message passes through a measurement function whose msrop is 'start' or 'start-feed', the message is tagged with a code for the msrname which enables one to limit measurements to measure functions that are tagged with that same code.
 
-Figure 9 below gives the rows for the running model's two measure functions, both in the HMI computational pattern, one with label 'startMeasure', the other with label 'endMeasure'. Like the finish functions, measure functions have a msg2mc dictionary.   In this running example we've left it empty for both functions, taking advantage of the **pces** action of assuming the function's op code is 'default' if it happens that the function's msg2mc table is empty.
+Figure 11 below gives the rows for the running model's two measure functions, both in the HMI computational pattern, one with label 'startMeasure', the other with label 'endMeasure'. Like the finish functions, measure functions have a msg2mc dictionary.   In this running example we've left it empty for both functions, taking advantage of the **pces** action of assuming the function's op code is 'default' if it happens that the function's msg2mc table is empty.
 
 ![cp-measure-sheet](./images/cp-measure-sheet.png)
 
-***Figure 9:  measure function configurations in xlsxPCES running example***
+***Figure 11:  measure function configurations in xlsxPCES running example***
 
 ##### transfer
 
@@ -233,11 +259,11 @@ The **pces** models one can build using the current state of default function mo
 
 However, the experience we have had has taught us that a useful functionality we can and should codify is a means of having a function accept a message, and forward that message to a function that was not identified in the CPG as a recipient of messages from the source, and indeed, have the inbound message itself carry the identity of the receiving function.   In this way, for example, a user could create an extension that generates multiple execution threads and tags each message with a destination function not otherwise known to the start function.  When that message reaches a function programmed to look for that information, it can extract it, and direct the message without relying on the CPG graph.
 
-**pces** defines the 'transfer' function class to fulfill that function.   The running example does not contain a transfer function, but the layout of the column labels for such functions when they are introduced appears below as Figure 10.
+**pces** defines the 'transfer' function class to fulfill that function.   The running example does not contain a transfer function, but the layout of the column labels for such functions when they are introduced appears below as Figure 12.
 
 ![transfer-cp-sheet](./images/transfer-cp-sheet.png) 
 
-***Figure 10:  Configuration information headers for transfer function***
+***Figure 12:  Configuration information headers for transfer function***
 
 Like all other initialization blocks, this one identifies the CmpPtn name and function label of the transfer function being configured.  The transfer function has 'trace' and 'msg2mc' fields that have the same meaning as they do with other function classes.   The function offers two ways to direct the forwarding of the message.   A boolean parameter in the column labeled 'carried' will, when that parameter is True, extract the destination's CmpPtn name, function label, and outbound message type from fields reserved for that purpose in the message's (internal) format.   Should it happen that the 'carried' parameter is False, the destination particulars of the outbound message are defined by the 'xcp', 'xlabel', and 'xmsgtype' parameters that appear in the columns of those names.
 
@@ -245,11 +271,11 @@ Like all other initialization blocks, this one identifies the CmpPtn name and fu
 
 Functions of the processPckt class have the most parameters, as they are least specialized of all the function classes.  The visual extent of a processPckt function initialization configuration is too long to display here, so we break the display up into two pieces.
 
-The first six columns of the processPckt function group of initializations appear below as Figure 11.
+The first six columns of the processPckt function group of initializations appear below as Figure 13.
 
 ![processPckt-cp-sheet-left](./images/processPckt-cp-sheet-left.png)
 
-***Figure 11:  processPckt function parameters for first six columns in the xlsxPCES running example***
+***Figure 13:  processPckt function parameters for first six columns in the xlsxPCES running example***
 
 
 
@@ -259,11 +285,11 @@ Similarly the op-codes found in the (timingcode) timing table column have to 'ma
 
 Note too the form and placement of the crypto operations. In experiments where we vary different cryptographic parameters to determine changes in system performance, it will be these entries that change.  The present design of **pces** does not yet embody efficient systematic means of simply varying these from experiment to experiment.
 
-Figure 12 gives the right half of the processPckt rows.  
+Figure 14 gives the right half of the processPckt rows.  
 
 ![processPckt-cp-sheet-right](./images/processPckt-cp-sheet-right.png)
 
-***Figure 12:  processPckt function parameters for last five columns in the xlsxPCES running example***
+***Figure 14:  processPckt function parameters for last five columns in the xlsxPCES running example***
 
 The emptiness of the msg2mc columns means that the method code 'default' is used, and so the default response method for processPckt's is used.   The emptiness of the msg2msg columns means that each of the processPckt functions have exactly one output edge, and the characteristics of that edge define the outbound message type (as well as the destination function).  The only non-empty entries are for the HMI accelEncrypt and accelqdecrypt functions in the 'acclname' column.   These name the accelerator used to perform the functions.   The names found in these cells have to also appear in the topo sheet, in the 'accel name' column for endpoints.  As the topo sheet is parsed by xlsxPCES before the cp sheet is, that information is available and is used as part of the validation of the cp sheet information.
 
@@ -271,21 +297,19 @@ The emptiness of the msg2mc columns means that the method code 'default' is used
 
 A common computational paradigm is to have a 'client' ask a 'server' for some service.  The understanding of the path of an execution path is simplified if we are explicit in identifying the client and that the client requests service, but can leave out CPG like details.   This observation gives rise to two final **pces** classes, 'srvReq' whose functions ask for service, and 'srvRsp' whose functions provide it.
 
-Figure 13 illustrates the first six columns of the srvReq configurations for the running example.
+Figure 15 illustrates the first six columns of the srvReq configurations for the running example.
 
 ![srvReq-cp-sheet-left](./images/srvReq-cp-sheet-left.png)
 
-***Figure 13:  srvReq function parameters for first six columns in the xlsxPCES running example***
+***Figure 15:  srvReq function parameters for first six columns in the xlsxPCES running example***
 
 Most of what we see here is entirely familiar by now.  The functions are named by the 'cmpptn' and 'label' columns, there is a 'trace' flag.   The msg2mc entries illustrate one more way that the msg2mc configuration can be approached, as the '*' string is taken to be the wildcard.   All incoming message types are then mapped to the method code contained in the (msg2mc) method code field.  Here that is simply 'default', and the attentative reader will notice that we would achieve the same effect if we had simple left the msg2mc dictionary empty!  However, here as elsewhere in the model, the point is to illustrate what xlsxPCES understands.
 
-Figure 14 shows the remaining six columns of these five srvReq functions.  We recognize that empty msg2msg dictionaries mean that these functions have single outputs, and that the destination and message type of the outbound message is completely characterized by that output.
+Figure 16 shows the remaining six columns of these five srvReq functions.  We recognize that empty msg2msg dictionaries mean that these functions have single outputs, and that the destination and message type of the outbound message is completely characterized by that output.
 
 ![srvReq-cp-sheet-right](./images/srvReq-cp-sheet-right.png)
 
-
-
-***Figure 14:  srvReq function parameters for last six columns in the xlsxPCES running example***
+***Figure 16:  srvReq function parameters for last six columns in the xlsxPCES running example***
 
 Things get a bit more complex though considering the other seven columns.  In the Big Picture, the srvReq function will identify a function to use as a server and the operation it requests of the server, and send a message to it using as the message type the value found in the srvop column.  Note that in this example the operation code involves an experiment variable.   When the model is run,  some string specified in the 'experiments' sheet is substituted for the substring 'str($crypto)', for example, 'AES-128-CBC', so that the operation code is one found in the execution timing table.   The server will receive the message, simulate service, and return the message.  Now the default response handler does not automatically add a simulation delay to model the time formulating a requested (but the server will add time).   However, when the server returns the message, signalling the completion of service, it is possible that the srvReq function expend some computational energy doing something with the returned result.  For this case, the srvReq configuration includes the 'response op' option, which means that if there is a non-empty string in the 'rspop' column, that string is assumed to be an op code for an operation whose timing is recorded in the function execution time table, and is used to find that time, and delay the forwarding of the message by that amount. 
 
@@ -295,11 +319,11 @@ Failing that, if both the 'srvcp' and 'srvlabel' columns are non-empty, they def
 
 ##### srvRsp
 
-Functions of the srvRsp class are specialized to support the client-server model.  Typically they are configured to receive service requests from any function, and upon completion return the inbound message to the requesting function.  Figure 15 illustrates the first six columns of srvRsp functions in the running example.
+Functions of the srvRsp class are specialized to support the client-server model.  Typically they are configured to receive service requests from any function, and upon completion return the inbound message to the requesting function.  Figure 16 illustrates the first six columns of srvRsp functions in the running example.
 
 ![srvRsp-cp-sheet-left](./images/srvRsp-cp-sheet-left.png)
 
-***Figure 15:  srvRsp function parameters for first six columns in the xlsxPCES running example***
+***Figure 16:  srvRsp function parameters for first six columns in the xlsxPCES running example***
 
 The 'cmpptn', and 'label' columns identify the function being configured.  The non-empty 'timingcode' columns for the 'EmbeddedAuth' and 'HMIAuth' servers are not surprising.  We see that the model should limit message types to those functions to the sole code 'auth', but we can see in the 'srvop' columns of functions that cite these two as servers that this is the case.  Deeper digging is needed to ensure that any service request that reaches one of these servers through a 'Services' table entry is likewise limited, but this is possible.   
 
@@ -307,11 +331,25 @@ For the Crypto/cryptoProcess function the emptiness of the 'timingcode' dictiona
 
 The rationale for this method to have the cyptographic specifics of crypto operations embedded in the configurations of the functions that request service, rather than turn an 'encrypt' request from a srvReq function into a single encryption oriented operation code that is encoded in the server.  Greater flexibility (and realism) comes with the approach we adopted.
 
-Figure 16 shows the remaining columns for this example's srvRsp function initialization.  The main point is to illustrate the use of a wild card (*) in the message type.   Had we left both msg2mc columns empty the default message code would have been assumed;  however, with the wildcard we could have (but didn't) made a different method code the default.
+Figure 17 shows the remaining columns for this example's srvRsp function initialization.  The main point is to illustrate the use of a wild card (*) in the message type.   Had we left both msg2mc columns empty the default message code would have been assumed;  however, with the wildcard we could have (but didn't) made a different method code the default.
 
 <img src="./images/srvRsp-cp-sheet-right.png" alt="srvRsp-cp-sheet-right" style="zoom:50%;" />
 
-***Figure 16: Rightmost columns of srvRsp function initialization***
+***Figure 17: Rightmost columns of srvRsp function initialization***
+
+#### ipmap sheet
+
+**mrnes** does not require that routing be done using IP addresses.  Internally it refers to devices and networks by symbolic names, which can be quite arbitrary.  However, **mrnes** with external processes such as traffic sources/destinations requires that it be able to translate IP addresses presented to it from the outside into references within the simulation model.  Since IP addresses are associated with network interfaces, through the dictionaries the ipmap sheet the modeler associates external IP addresses with **mrnes** interfaces, and ascribes to these an IP address from internal network definitions.
+
+Figure 18 below illustrates an example. There are three sections.  The first maps the identifies of **mrnes** network interfaces to internal and external IP addresses.  The interface is identified by naming the name of device that hosts it, and the name of the network the interface faces. Representation of the internal IP address in this table causes the identified internal address to be applied to the interface being referenced.  When a packet from an external feed arrives, this table and the packet's own IP addresses specify its source and destination within the **mrnes** model.  While not all **mrnes** interfaces need to be represented in this table,  IP address taken from a feed packet must be represented as an external IP here.
+
+The second section declares equivalences between internal and external CIDR blocks. These declarations are for future use, at present no core **mrnes** functionality requires use of CIDR block declarations.
+
+![ipmap-sheet](/Users/nicol/Dropbox/github-repos/pcesbld/docs/images/ipmap-sheet.png)
+
+***Figure 18:  The ipmap sheet in the xlsxPCES running example***
+
+The third section describes operational attributes of external feeds.  There may be multiple feeds declared, each with a unique name.  Feeds can be turned on and off by toggling the Boolean value in the 'active' column.  The src type column specifies whether the packets are directly read from file by the simulator, or are delivered to it through a socket.  If a socket, the delivery may be through a Unix file or through a network connection.   The string that appears in the 'src spec' column is used in conjunction with the declaration in the 'src type' column.  If the feed is from the simulator directly reading packets from file, the 'src spec' column gives the path to the PCAP file, relative to the input directory that the simulation uses to read its various yaml input files.   If the feed is based on a Unix-based file socket, the 'src spec' column gives the complete absolute path of the file shared between traffic source and **mrnes**.  If the feed is based on a network socket the 'src spec' column gives the port number **mrnes** listens on for connections to this feed.  The 'time' column indicates whether the time stamp given to an arriving packet is that of the wallclock ('clock'), or is computed as a function of the measurement time associated with the packet.  In the latter case the virtual arrival time is computed as a linear function with paramters given in the 'dilation' and 'first arrival' columns.    The first packet to be seen  on a feed is given an arrival time specified in the 'first arrival' column, in units of seconds.   The observed time stamps of the first packet is subtracted from the time stamp of a subsequent arrival to determine the real-time lapse between those two measurements.  That lapse is scaled by multiplication with the value in the 'dilation' column, to either compress it (dilation < 1.0) or expand it (dilation > 1.0).
 
 #### mapping sheet
 
@@ -321,7 +359,7 @@ Every **pces** function is assigned to be executed on some 'Endpoint' that was i
 
 
 
-***Figure 17:  The mapping sheet in the xlsxPCES running example***
+***Figure 19:  The mapping sheet in the xlsxPCES running example***
 
 A function to be mapped is described by the name of the CmpPtn that holds it, and the function label.   The name of the endpoint it is mapped to appears in the column labeled 'endpoint'.   The values in these columns must be found in the 'endpt name' column for endpoints in the topo sheet.
 
@@ -329,11 +367,11 @@ The integer values in the 'sched priority' column need to be non-negative, and p
 
 #### netParams sheet
 
-Performance parameters (like bandwidth, and latency) are described in the netParams sheet.   The sheet used for the xlsxPCES running example appears as Figure 18 below.
+Performance parameters (like bandwidth, and latency) are described in the netParams sheet.   The sheet used for the xlsxPCES running example appears as Figure 20 below.
 
 ![netParams-sheet](./images/netparams-sheet.png)
 
-***Figure 18:  The netParams sheet in the xlsxPCES running example***
+***Figure 20:  The netParams sheet in the xlsxPCES running example***
 
 There is a separate section, with separate labels, for each of the five network object types (Network, Switch, Router, Endpoint, and Interface).    Here, for each object type, the columns in yellow describe object attributes, and columns in blue denote parameter values that can be set.   There may be multiple rows for each network object type.  In a given row one marks the attributes the modeler choose to identify the objects to be given parameter values, and marks the parameter columns with the values to ascribe.
 
@@ -349,15 +387,15 @@ The most interesting attributes and parameters are associated with interfaces. A
 
 Each execution of the **pces** simulator uses a fixed set of experimental parameters, and produces a file of "measurements" whose collection has been encoded into the the model.   The most common use of simulators though is to run a number of trials where the experimental parameters are varied between trials, in order to assess the performance of the system being modeled to those parameters.  To support this use case, xlsxPCES includes an 'experiments' sheet to describe a collection of parameter settings that define an experiment comprised of multiple runs.
 
-Figure 19 below illustrates a sheet we use with the running example.
+Figure 21 below illustrates a sheet we use with the running example.
 
 <img src="./images/experiments-sheet.png" alt="experiments-sheet" style="zoom:50%;" />
 
 
 
-***Figure 19: An experiments sheet for the the xlsxPCES running example***
+***Figure 21: An experiments sheet for the the xlsxPCES running example***
 
-The row whose first cell is 'name' is recognized as defining the parameters to be varied.  The somewhat idyiosyncratic value in columns beyond the first describe parameters settings, one per column.   Each of these column heading cells is a comma separated list, whose first element must begin with the character '\$'.   This element is a 'variable' which can be placed as a substring of a value in the cell of some other sheet.  The remaining elements of the comma separated list are names of xlsxPCES sheets in which the given variable may appear.    So in this example we define a variable '\$crypto' and state that this symbol may be found in the 'cp' sheet of the model, define a variable '$bndwdth' and declare that it may be found in the 'netParams' sheet, and define a variable 'no_zerotrust' and declare that it may be found in the 'cp' sheet.     We previously saw these variables used, in Figures 13, 14, and 18.
+The row whose first cell is 'name' is recognized as defining the parameters to be varied.  The somewhat idyiosyncratic value in columns beyond the first describe parameters settings, one per column.   Each of these column heading cells is a comma separated list, whose first element must begin with the character '\$'.   This element is a 'variable' which can be placed as a substring of a value in the cell of some other sheet.  The remaining elements of the comma separated list are names of xlsxPCES sheets in which the given variable may appear.    So in this example we define a variable '\$crypto' and state that this symbol may be found in the 'cp' sheet of the model, define a variable '$bndwdth' and declare that it may be found in the 'netParams' sheet, and define a variable 'no_zerotrust' and declare that it may be found in the 'cp' sheet.     We previously saw these variables used, in Figures 15 and 20.
 
 In the 'experiments' sheet the rows following the definition of symbols and sheets where they may appear each describe a simulation run, giving the values to assign to each of the symbols for that run.   So in this example we define four experiments,  exploring all options possible from varying the crypto parameters from the set {AES-256-CBC, AES-128-CBC}, and all interface bandwidth parameters from {10, 1000} Mbs.
 
@@ -367,11 +405,11 @@ When *pdesbld/xlsxPCES/convert-xlsx.py* is run it builds and tests the parameter
 
 The main directory of the *github.com/iti/pcesbld* repo currently has two files (LICENSE and README.md), a standard subdirectory named *docs*, and another subdirectory named *xlsxPCES*, which contains the tool material.
 
-Figure 20 illustrates the structure of *pcesbld/xlsxPCES*.
+Figure 22 illustrates the structure of *pcesbld/xlsxPCES*.
 
 ![xlsxPCES-repo](./images/xlsxPCES-repo.png)
 
-***Figure 20: Layout of xlsxPCES directory of pcesbld repository***.
+***Figure 22: Layout of xlsxPCES directory of pcesbld repository***.
 
 The examples laid out in *github.com/iti/pcesapps* assume that a bash environment variable \$xlsxPCES is set to the host's path to this directory.   At the highest level, a model is built calling
 
