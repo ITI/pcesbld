@@ -688,10 +688,10 @@ class Start:
 class Feed:
     def __init__(self, row):
         self.fnclass = 'feed'
-        self.cmpptn = row[1]
-        self.label = row[2]
-        self.srcip = row[3]
-        self.dstip = row[4]
+        self.cmpptn = row[1].strip()
+        self.label = row[2].strip()
+        self.srcip = row[3].strip()
+        self.dstip = row[4].strip()
         
         self.init = {'srcip': self.srcip, 'dstip': self.dstip, 'msgtype': row[5], 'data': row[6], 
              'groups':[], 'trace': row[7]}
@@ -721,60 +721,59 @@ class Feed:
                 msgs.append(msg)
 
 
-        # at least one of self.srcip and self.dstip has to be specified, but it is not needed to 
-        # specify both
-        if len(self.srcip) == 0:
-            msg = 'feed source specification is empty'
+        # exactly one of self.srcip and self.dstip has to be specified
+        
+        if not (len(self.srcip) == 0)^(len(self.dstip) == 0) :
+            msg = 'exactly one of feed srcip or dstip must be empty src ({}) {} dst ({}) {}'.format(self.srcip, len(self.srcip) == 0, self.dstip, len(self.dstip) == 0)
             msgs.append(msg)
 
-        if len(self.dstip) == 0:
-            msg = 'feed destinatino specification is empty'
-            msgs.append(msg)
-
-        if len(self.srcip) > 0 and self.srcip.find(':') == -1:
-            msg = 'feed source description {} not in format IP:port'.format(self.srcip)
-            msgs.append(msg)
-        elif len(self.srcip) > 0: 
-            pieces = self.srcip.split(':')
-            if len(pieces) != 2:
-                msg = 'feed source description {} not in format FeedName,IP:port'.format(self.srcip)
+        if len(self.srcip) > 0 and len(self.dstip) == 0 :
+            if self.srcip.find(':') == -1 :
+                msg = 'feed source description {} not in format IP:port'.format(self.srcip)
                 msgs.append(msg)
             else:
-                if pieces[0] != "*" and not is_legal_ip_address(pieces[0]):
+                pieces = self.srcip.split(':')
+                if len(pieces) != 2:
                     msg = 'feed source description {} not in format FeedName,IP:port'.format(self.srcip)
                     msgs.append(msg)
+                else:
+                    if pieces[0] != "*" and not is_legal_ip_address(pieces[0]):
+                        msg = 'feed source description {} not in format FeedName,IP:port'.format(self.srcip)
+                        msgs.append(msg)
 
-                if pieces[1] != '*':
-                    try:
-                        portNum = int(pieces[1])
-                        if not portNum > 0:
+                    if pieces[1] != '*':
+                        try:
+                            portNum = int(pieces[1])
+                            if not portNum > 0:
+                                msg = 'feed source description {} needs positive port number'.format(self.srcip)
+                                msgs.append(msg)
+                        except:
                             msg = 'feed source description {} needs positive port number'.format(self.srcip)
                             msgs.append(msg)
-                    except:
-                        msg = 'feed source description {} needs positive port number'.format(self.feed)
-                        msgs.append(msg)
 
-        if len(self.dstip) > 0 and self.dstip.find(':') == -1:
-            msg = 'feed destination description {} not in format IP:port'.format(self.dstip)
-            msgs.append(msg)
-        elif len(self.dstip) > 0: 
-            pieces = self.dstip.split(':')
-            if len(pieces) != 2:
-                msg = 'feed destination description {} not in format FeedName,IP:port'.format(self.dstip)
+        if len(self.dstip) > 0 and len(self.srcip) == 0 :
+            if self.dstip.find(':') == -1 :
+                msg = 'feed destination description {} not in format IP:port'.format(self.dstip)
                 msgs.append(msg)
             else:
-                if not is_legal_ip_address(pieces[0]):
+                pieces = self.dstip.split(':')
+                if len(pieces) != 2:
                     msg = 'feed destination description {} not in format FeedName,IP:port'.format(self.dstip)
                     msgs.append(msg)
-                elif pieces[1] != '*':
-                    try:
-                        portNum = int(pieces[1])
-                        if not portNum > 0:
+                else:
+                    if pieces[0] != "*" and not is_legal_ip_address(pieces[0]):
+                        msg = 'feed destination description {} not in format FeedName,IP:port'.format(self.dstip)
+                        msgs.append(msg)
+
+                    if pieces[1] != '*':
+                        try:
+                            portNum = int(pieces[1])
+                            if not portNum > 0:
+                                msg = 'feed destination description {} needs positive port number'.format(self.dstip)
+                                msgs.append(msg)
+                        except:
                             msg = 'feed destination description {} needs positive port number'.format(self.dstip)
                             msgs.append(msg)
-                    except:
-                        msg = 'feed destination description {} needs positive port number'.format(self.feed)
-                        msgs.append(msg)
 
         if len(msgs) > 0:
             return False, '\n'.join(msgs)

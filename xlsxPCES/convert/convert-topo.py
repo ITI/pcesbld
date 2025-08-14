@@ -1596,7 +1596,7 @@ def main():
         ad['Switch'].append(switch.attrbDict()) 
 
     for router in routerList:
-        ad['Switch'].append(router.attrbDict()) 
+        ad['Router'].append(router.attrbDict()) 
 
     for endpt in endptList:
         ad['Endpoint'].append(endpt.attrbDict())

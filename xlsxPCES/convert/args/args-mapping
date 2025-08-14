@@ -4,4 +4,4 @@
 -cpuDesc cpuDesc.json
 -cpuOpsDesc cpuOps.json
 -tcDesc tc.json
--map map.yaml
+-mapping mapping.yaml

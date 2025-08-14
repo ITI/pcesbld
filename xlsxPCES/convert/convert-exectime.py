@@ -19,6 +19,11 @@ modelIdx = 0
 pcktLenIdx = 2
 execTimeIdx = 3
 
+funcmodelIdx = 0
+funcoperationIdx = 1
+funcpcktLenIdx = 2
+funcexecTimeIdx = 3
+
 bndwdthIdx = 4
 
 execTimeList = []
@@ -149,11 +154,11 @@ class DevOpTimeEntry:
 class FunctionEntry:
     def __init__(self, devtype, row):
         self.devtype = devtype                      # model 
-        self.model = row[modelIdx]
-        self.devfunc  = row[operationIdx]
+        self.model = row[funcmodelIdx]
+        self.devfunc  = row[funcoperationIdx]
         self.op = self.devfunc
-        self.pcktLen = row[pcktLenIdx]
-        self.execTime = row[execTimeIdx]
+        self.pcktLen = row[funcpcktLenIdx]
+        self.execTime = row[funcexecTimeIdx]
         self.bndwdth  = 0.0
 
     def validate(self):
@@ -187,7 +192,7 @@ class FunctionEntry:
 
     def repDict(self):
         rd = {'devfunc': self.devfunc, 'model': self.model, 'pcktlen': int(self.pcktLen), 
-            'bndwdth': 0.0, 'param':"", 'devop':""}
+            'bndwdth': 0.0, 'param':"", 'devop':""} 
 
         if self.execTime.find(')') == -1:
             rd['exectime'] = float(self.execTime)/1e6
@@ -336,6 +341,10 @@ def main():
     func_exec_output_file = os.path.join(yamlDir, args.funcExec_output)
 
     dev_exec_output_file = os.path.join(yamlDir, args.devExec_output)
+
+    dev_exec_desc_output_file = os.path.join(descDir, args.devExec_output)
+    dev_exec_desc_output_file = dev_exec_desc_output_file.replace('.yaml','.json')
+    
     cpu_ops_output_file = os.path.join(descDir, args.cpuOpsDesc_output)
     dev_model_output_file = os.path.join(descDir, args.modelDesc_output)
 
@@ -517,6 +526,9 @@ def main():
     tableDict = {'listname': sysname, 'times': timesByOp }
     with open(dev_exec_output_file, 'w') as wf:
         yaml.dump(tableDict, wf, default_flow_style=False)
+        
+    with open(dev_exec_desc_output_file, 'w') as wf:
+        json.dump(tableDict, wf)
         
     with open(dev_model_output_file, 'w') as wf:
         json.dump(modelDict, wf)

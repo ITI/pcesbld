@@ -27,13 +27,13 @@ netParamLater = ('bacgrndBW', 'drop')
 switchAttrbIdx = {}
 switchParamIdx = {}
 switchAttrb = ('name', 'groups', 'model', '*')
-switchParam  = ('model', 'trace')
+switchParam  = ('model', 'trace', 'func')
 switchParamLater = ('buffer', 'simple', 'drop')
 
 routerAttrbIdx = {}
 routerParamIdx = {}
 routerAttrb = ('name', 'groups', 'model', '*')
-routerParam  = ('model', 'trace')
+routerParam  = ('model', 'trace','func')
 routerParamLater = ('buffer', 'simple', 'drop')
 
 endptAttrbIdx = {}
@@ -54,6 +54,9 @@ flowAttrb = ('name', 'groups', 'srcdev', 'dstdev', '*')
 flowParam = ('reqrate', 'classid', 'elastic')
 
 attrbDesc = {}
+
+devOpDict = {}
+devFuncDict = {}
 
 def createIdx():
     for idx in range(0,len(netAttrb)):
@@ -78,6 +81,7 @@ def createIdx():
 
     for idx in range(0,len(intrfcAttrb)):
         intrfcAttrbIdx[ intrfcAttrb[idx] ] = idx
+
     for idx in range(0, len(intrfcParam)):
         intrfcParamIdx[ idx ] = len(intrfcAttrb)+idx
 
@@ -306,7 +310,7 @@ class Switch:
 
     def validate(self):
         # switchAttrb = ('name', 'group', 'model', '*')
-        # switchParam  = ('model', 'trace')
+        # switchParam  = ('model', 'trace', 'func')
  
         errs = []
         warnings = []
@@ -391,7 +395,33 @@ class Switch:
             if not modelFound:
                 msg = 'error: Switch parameter list gives switch model "{}" not found in the system model'.format(modelParam)
                 errs.append(msg)
- 
+
+        func = self.param['func']
+        if len(func) > 0:
+            # split function across ','
+            pieces = func.split(',')
+            if len(pieces) != 2:
+                msg = 'error: Switch function format is functionName,applicationCode'
+                errs.append(msg)
+            else:
+                funcName = pieces[0].strip()
+                funcApp  = pieces[1].strip()
+
+                # ensure that identified function is '*' or was specified in exectimes file
+                if funcName != '*' and funcName not in devFuncDict:
+                    msg = 'error: Switch function {} needs to appear in device function execution times list'.format(funcName)
+                    errs.append(msg)
+
+                elif funcName != '*' and switchModel not in devFuncDict[funcName]:
+                    msg = 'error: Switch function {} needs to appear in device function execution times list'.format(funcName)
+                    errs.append(msg)
+            
+                elif funcApp not in ('cross', 'interior', '*'):
+                    msg = 'error: Switch function application needs to be one of "{}"'.format('cross, interior, *')
+                    errs.append(msg)
+
+                self.param['func'] = funcName+','+funcApp
+                
         if len(warnings) > 0:
             for msg in warnings:
                 print_err(msg)
@@ -529,7 +559,33 @@ class Router:
             if not modelFound:
                 msg = 'error: Router parameter list gives router model "{}" not found in the system model'.format(modelParam)
                 errs.append(msg)
- 
+
+        func = self.param['func']
+        if len(func) > 0:
+            # split function across ','
+            pieces = func.split(',')
+            if len(pieces) != 2:
+                msg = 'error: Router function format is functionName,applicationCode'
+                errs.append(msg)
+            else:
+                funcName = pieces[0].strip()
+                funcApp  = pieces[1].strip()
+
+                # ensure that identified function is '*' or was specified in exectimes file
+                if funcName != '*' and funcName not in devFuncDict:
+                    msg = 'error: Router function {} needs to appear in device function execution times list'.format(funcName)
+                    errs.append(msg)
+
+                elif funcName != '*' and routerModel not in devFuncDict[funcName]:
+                    msg = 'error: Router function {} needs to appear in device function execution times list'.format(funcName)
+                    errs.append(msg)
+            
+                elif funcApp not in ('cross', 'interior', '*'):
+                    msg = 'error: Router function application needs to be one of "{}"'.format('cross, interior, *')
+                    errs.append(msg)
+
+                self.param['func'] = funcName+','+funcApp
+                
         if len(warnings) > 0:
             for msg in warnings:
                 print_err(msg)
@@ -705,7 +761,11 @@ class Interface:
 
         numAttrb = len(intrfcAttrb)
         for idx in range(0, len(intrfcParam)):
-            self.param[intrfcParam[idx]] = row[numAttrb+idx]
+            try:
+                self.param[intrfcParam[idx]] = row[numAttrb+idx]
+            except:
+                print('idx:{},len(intrfcParam):{},numAttrb+idx:{}, len(row):{}'.format(idx,len(intrfcParam),numAttrb+idx,len(row)))
+                exit()
 
     def repDict(self):
         rdList = []
@@ -1163,9 +1223,9 @@ def main():
     # csv input file
     parser.add_argument(u'-csvIn', metavar = u'input csv file name', dest=u'csv_input', required=True)
 
-    # csv input file
-    parser.add_argument(u'-attrbDescIn', metavar = u'input json file of attributes to us in validation', dest=u'attrbDesc_input', required=True)
+    parser.add_argument(u'-attrbDescIn', metavar = u'input json file of attributes to use in validation', dest=u'attrbDesc_input', required=True)
 
+    parser.add_argument(u'-devExecDescIn', metavar = u'input json file of device ops/functions to use in validation', dest=u'devExecDesc_input', required=True)
     # output file in the format of exp.yaml
     parser.add_argument(u'-exp', metavar = u'network parameter file name', dest=u'exp_output', required=True)
 
@@ -1210,9 +1270,10 @@ def main():
     csv_input_file = os.path.join(csvDir, args.csv_input)
     exp_output_file = os.path.join(yamlDir, args.exp_output)
     attrbDescIn_file = os.path.join(descDir, args.attrbDesc_input)
+    devExecDescIn_file = os.path.join(descDir, args.devExecDesc_input)
 
     errs = 0
-    input_files = (csv_input_file, attrbDescIn_file)
+    input_files = (csv_input_file, attrbDescIn_file, devExecDescIn_file)
     for input_file in input_files:
         if not os.path.isfile(input_file):
             print_err('unable to open input file "{}"'.format(input_file))
@@ -1224,9 +1285,29 @@ def main():
     except:
         print_err('unable to open {}'.format(attrbDescIn_file))
         errs += 1
- 
+
+    try: 
+        with open(devExecDescIn_file, 'r') as rf:
+            devExecDesc = json.load(rf)
+    except:
+        print_err('unable to open {}'.format(devExecDescIn_file))
+        errs += 1
+
     if errs > 0:
         exit(0)
+
+    for actionName in devExecDesc['times']:
+        actionDictList = devExecDesc['times'][actionName]
+        for actionDict in actionDictList:
+            if actionDict['devfunc'] == actionName:
+                if actionName not in devFuncDict:
+                    devFuncDict[actionName] = {}
+                devFuncDict[actionName][actionDict['model']] = True
+  
+            if actionDict['devop'] == actionName:
+                if actionName not in devOpDict:
+                    devOpDict[actionName] = {}
+                devOpDict[actionName][actionDict['model']] = True
 
     createIdx()
 
@@ -1237,6 +1318,7 @@ def main():
     interface = False 
     
     msgs = []
+    maxCols = 12
     with open(csv_input_file, newline='') as rf:
         csvrdr = csv.reader(rf)
         for raw in csvrdr:
@@ -1253,7 +1335,7 @@ def main():
             if unnamed(row):
                 continue
 
-            row = cleanRow(row)
+            row = cleanRow(row, maxCols)
 
             matchCode = "None"
             rowTypes = ('Network', 'Switch', 'Router', 'Endpoint', 'Interface', 'Flows') 
@@ -1274,7 +1356,7 @@ def main():
             elif matchCode == "Switch": 
                     network = False
                     switch = True
-                    maxCols = 7
+                    maxCols = 8
                     router  = False
                     endpoint = False
                     interface = False 
@@ -1285,7 +1367,7 @@ def main():
                     network = False
                     switch = False
                     router  = True
-                    maxCols = 7
+                    maxCols = 8
                     endpoint = False
                     interface = False 
                     flows = False
@@ -1408,14 +1490,23 @@ def main():
     with open(exp_output_file, 'w') as wf:
         yaml.dump(expDict, wf, default_flow_style=False)
 
-def cleanRow(row):
+def cleanRow(row, mxc):
     rtn = []
+    commented = False
     for r in row:
         if r.startswith('#!'):
             r = ''                     
+            commented = True
         elif len(rtn) > 0 and r.startswith('#'):
+            commented = True
             break
+
         rtn.append(r)
+
+    residual = mxc-len(rtn)
+    if not commented and residual > 0 :
+        for idx in range(0,residual):
+            rtn.append('')
 
     return rtn
 
